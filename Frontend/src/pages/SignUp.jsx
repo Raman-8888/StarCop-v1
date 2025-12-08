@@ -3,12 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, User, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+import { API_URL } from '../config';
+
 export default function Signup() {
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [accountType, setAccountType] = useState('startup'); // Default to startup
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -94,12 +97,12 @@ export default function Signup() {
 
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3002/api/auth/signup', {
+            const response = await fetch(`${API_URL}/api/auth/signup`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name: fullName, username, email, password }),
+                body: JSON.stringify({ name: fullName, username, email, password, accountType }),
             });
 
             const data = await response.json();
@@ -110,12 +113,19 @@ export default function Signup() {
                     id: data.user.id,
                     name: data.user.name,
                     email: data.user.email,
-                    token: data.token
+                    token: data.token,
+                    accountType: data.user.accountType
                 });
-                // Navigate to home
-                navigate('/');
+
+                // Navigate to completion page based on account type
+                if (data.user.accountType === 'startup') {
+                    navigate('/complete-profile/startup');
+                } else {
+                    navigate('/complete-profile/investor');
+                }
             } else {
-                setError(data.message || 'Signup failed');
+                // Prefer specific error message if available (from backend 500 or 400)
+                setError(data.error || data.message || 'Signup failed');
             }
         } catch (error) {
             console.error('Signup error:', error);
@@ -126,7 +136,7 @@ export default function Signup() {
     };
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-black flex items-center justify-center">
+        <div className="relative min-h-screen overflow-hidden flex items-center justify-center">
             {/* Back to Home Button */}
             <Link
                 to="/"
@@ -157,6 +167,25 @@ export default function Signup() {
                         {error && (
                             <p className="text-red-400 mt-2 text-sm">{error}</p>
                         )}
+                    </div>
+
+                    <div className="text-center mb-6">
+                        <div className="flex justify-center space-x-4 mb-6">
+                            <button
+                                type="button"
+                                onClick={() => setAccountType('startup')}
+                                className={`px-6 py-3 rounded-xl border transition-all ${accountType === 'startup' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
+                            >
+                                I am a Startup
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAccountType('investor')}
+                                className={`px-6 py-3 rounded-xl border transition-all ${accountType === 'investor' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
+                            >
+                                I am an Investor
+                            </button>
+                        </div>
                     </div>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>

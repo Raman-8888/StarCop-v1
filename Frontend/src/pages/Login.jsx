@@ -1,78 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { motion } from 'framer-motion';
+import { API_URL } from '../config';
+import LoginScene3D from '../components/3d/LoginScene3D';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const canvasRef = useRef(null);
   const { login } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePos({
-        x: (e.clientX / window.innerWidth) * 2 - 1,
-        y: -(e.clientY / window.innerHeight) * 2 + 1
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const particles = [];
-    const particleCount = 100;
-
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        z: Math.random() * 1000,
-        radius: Math.random() * 2 + 1
-      });
-    }
-
-    function animate() {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      particles.forEach((particle) => {
-        particle.z -= 2;
-        if (particle.z <= 0) {
-          particle.z = 1000;
-          particle.x = Math.random() * canvas.width;
-          particle.y = Math.random() * canvas.height;
-        }
-
-        const scale = 1000 / (1000 + particle.z);
-        const x2d = (particle.x - canvas.width / 2) * scale + canvas.width / 2;
-        const y2d = (particle.y - canvas.height / 2) * scale + canvas.height / 2;
-        const radius = particle.radius * scale;
-
-        ctx.beginPath();
-        ctx.arc(x2d, y2d, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(139, 92, 246, ${1 - particle.z / 1000})`;
-        ctx.fill();
-      });
-
-      requestAnimationFrame(animate);
-    }
-
-    animate();
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,25 +21,21 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3002/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        // Log in the user with the returned data
         login({
           id: data.user.id,
           name: data.user.name,
           email: data.user.email,
           token: data.token
         });
-        // Navigate to home
         navigate('/');
       } else {
         setError(data.message || 'Login failed');
@@ -112,124 +49,101 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black flex items-center justify-center">
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden font-sans">
+
+      {/* 3D Background */}
+      <LoginScene3D />
+
       {/* Back to Home Button */}
       <Link
         to="/"
-        className="absolute top-4 left-4 sm:top-8 sm:left-8 z-30 text-white/70 hover:text-white transition-colors"
+        className="absolute top-8 left-8 z-30 text-gray-400 hover:text-white transition-colors flex items-center gap-2"
       >
-        <ArrowLeft className="w-8 h-8" />
+        <ArrowLeft size={20} />
+        <span className="font-medium">Back to Home</span>
       </Link>
-      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
 
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-blue-900/20 z-10" />
-
-      <div
-        className="relative z-20 w-full max-w-md px-4 sm:px-6"
-        style={{
-          transform: `perspective(1000px) rotateY(${mousePos.x * 5}deg) rotateX(${mousePos.y * 5}deg)`
-        }}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative z-20 w-full max-w-md"
       >
-        <div className="backdrop-blur-xl bg-white/10 rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 transform transition-all duration-300 hover:scale-105">
+        <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 p-8 md:p-10 shadow-2xl">
 
-          <div className="text-center mb-8">
-            <div className="inline-block p-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl mb-4 animate-pulse">
-              <Lock className="w-12 h-12 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-2 bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-              Welcome Back
-            </h1>
-            <p className="text-gray-300">Enter your credentials to continue</p>
-            {error && (
-              <p className="text-red-400 mt-2 text-sm">{error}</p>
-            )}
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold mb-3 tracking-tight">Welcome Back.</h1>
+            <p className="text-gray-400">Sign in to continue your journey.</p>
           </div>
 
-          {/* FIXED: FORM START */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center font-medium"
+            >
+              {error}
+            </motion.div>
+          )}
+
           <form className="space-y-6" onSubmit={handleSubmit}>
-
-            <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-400 w-5 h-5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400"
-                required
-              />
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500 ml-1">Email</label>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-purple-400 transition-colors w-5 h-5" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all"
+                  required
+                />
+              </div>
             </div>
 
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-400 w-5 h-5" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400"
-                required
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center text-gray-300 cursor-pointer">
-                <input type="checkbox" className="mr-2" />
-                <span>Remember me</span>
-              </label>
-              <a href="#" className="text-purple-400 hover:text-purple-300">Forgot Password?</a>
+            <div className="space-y-2">
+              <div className="flex justify-between ml-1">
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Password</label>
+                <a href="#" className="text-xs font-bold text-purple-400 hover:text-white transition-colors">Forgot?</a>
+              </div>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-purple-400 transition-colors w-5 h-5" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full pl-12 pr-12 py-4 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-white text-black font-bold text-lg rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
-
           </form>
-          {/* FIXED: FORM END */}
 
-          <div className="mt-8 text-center">
-            <p className="text-gray-400">
-              Don't have an account?{' '}
-              <Link to="/Signup" className="text-purple-400 font-semibold">
-                Sign Up
-              </Link>
-            </p>
-          </div>
-
-          <div className="mt-6 flex justify-center space-x-4">
-            <button className="p-3 bg-white/5 rounded-full">
-              <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full" />
-            </button>
-            <button className="p-3 bg-white/5 rounded-full">
-              <div className="w-6 h-6 bg-gradient-to-br from-red-400 to-red-600 rounded-full" />
-            </button>
-            <button className="p-3 bg-white/5 rounded-full">
-              <div className="w-6 h-6 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full" />
-            </button>
-          </div>
-
-        </div>
-
-        <div className="mt-6 text-center">
-          <div className="inline-flex space-x-2 items-center text-gray-500 text-sm">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span>Secure Connection</span>
+          <div className="mt-8 text-center text-gray-500 text-sm">
+            Don't have an account?{' '}
+            <Link to="/signup" className="text-white font-bold hover:text-purple-400 transition-colors">
+              Create Account
+            </Link>
           </div>
         </div>
-
-      </div>
+      </motion.div>
     </div>
   );
 }

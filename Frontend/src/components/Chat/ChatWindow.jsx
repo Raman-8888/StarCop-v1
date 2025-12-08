@@ -5,6 +5,8 @@ import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import { MoreVertical, Phone, Video, ArrowLeft } from "lucide-react";
 
+import { API_URL } from "../../config";
+
 export default function ChatWindow({ conversation, fetchConversations, onBack }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -21,7 +23,7 @@ export default function ChatWindow({ conversation, fetchConversations, onBack })
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`http://localhost:3002/api/chat/messages/${conversation._id}`, {
+        const res = await fetch(`${API_URL}/api/chat/messages/${conversation._id}`, {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         const data = await res.json();
@@ -57,7 +59,7 @@ export default function ChatWindow({ conversation, fetchConversations, onBack })
 
   const sendMessage = async (text) => {
     try {
-      const res = await fetch(`http://localhost:3002/api/chat/messages`, {
+      const res = await fetch(`${API_URL}/api/chat/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -6,6 +6,8 @@ import ChatWindow from "../components/Chat/ChatWindow";
 import { Link } from 'react-router-dom';
 import { MessageSquare, ArrowLeft } from "lucide-react";
 
+import { API_URL } from "../config";
+
 export default function Chat() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
@@ -13,7 +15,7 @@ export default function Chat() {
 
   const fetchConversations = async () => {
     try {
-      const res = await fetch("http://localhost:3002/api/chat/conversations", {
+      const res = await fetch(`${API_URL}/api/chat/conversations`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       const data = await res.json();

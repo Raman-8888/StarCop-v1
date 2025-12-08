@@ -29,6 +29,14 @@ const authRoutes = require('./route/auth.route');
 
 // Use routes
 app.use('/api/auth', authRoutes);
+const userRoutes = require('./route/user.routes');
+const postRoutes = require('./route/post.routes');
+
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
+
+const opportunityRoutes = require('./route/opportunity.routes');
+app.use('/api/opportunities', opportunityRoutes);
 
 const server = http.listen(3002, () => {
     console.log("server is running on port 3002");

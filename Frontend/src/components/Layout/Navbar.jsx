@@ -1,106 +1,153 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, User } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Menu, X, LogOut, User, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const navLinks = [
+    { name: 'Home', path: '/' },
+    { name: 'Opportunities', path: '/opportunities' },
+    { name: 'Chat', path: '/chat' },
+  ];
+
   return (
-    <nav className="w-full bg-white shadow z-50">
-      <div className="w-full flex items-center justify-between px-4 sm:px-6 py-4">
-        <Link to="/" className="text-xl font-bold text-blue-600">StartupConnect</Link>
+    <nav className="absolute top-0 w-full z-50  border-b border-white/5 transition-all duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/" className="text-gray-700 hover:text-blue-600">Home</Link>
-          <Link to="/opportunities" className="text-gray-700 hover:text-blue-600">Opportunities</Link>
-          <Link to="/chat" className="text-gray-700 hover:text-blue-600">Chat</Link>
-          <Link to="/profile" className="text-gray-700 hover:text-blue-600">Profile</Link>
-        </div>
+          {/* Logo */}
+          <Link to="/" className="text-2xl font-bold tracking-tighter text-white flex items-center gap-2 group">
+            <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-lg flex items-center justify-center transform group-hover:rotate-12 transition-transform">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <span>Star<span className="text-gray-400">Cop</span></span>
+          </Link>
 
-        {/* Desktop Buttons */}
-        <div className="hidden md:flex items-center gap-4">
-          {user ? (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-md">
-                  <User className="w-4 h-4 text-blue-600" />
-                  <span className="text-gray-700 font-medium">Welcome, {user.name}</span>
-                </div>
+          {/* Desktop Links */}
+          <div className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.path}
+                className={`text-sm font-medium transition-colors hover:text-white relative group ${location.pathname === link.path ? 'text-white' : 'text-gray-400'}`}
+              >
+                {link.name}
+                {location.pathname === link.path && (
+                  <motion.div
+                    layoutId="underline"
+                    className="absolute -bottom-1 left-0 w-full h-0.5 bg-purple-500"
+                  />
+                )}
+              </Link>
+            ))}
+            {/* Profile Link separate for desktop if logged in? Or in buttons? User requested "keep same vibe". Let's put specific user actions in button area */}
+          </div>
+
+          {/* Desktop Buttons */}
+          <div className="hidden md:flex items-center gap-6">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <Link to="/profile" className="flex items-center gap-3 group cursor-pointer">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center overflow-hidden group-hover:border-purple-500/50 transition-colors">
+                    <User className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-400">Welcome back</span>
+                    <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">{user.name}</span>
+                  </div>
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 rounded-md border border-red-600 text-red-600 hover:bg-red-50"
+                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                  title="Logout"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Logout
+                  <LogOut size={20} />
                 </button>
               </div>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="px-4 py-2 rounded-md border border-blue-600 text-blue-600 hover:bg-blue-50">
-                Login
-              </Link>
-              <Link to="/Signup" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
-                Signup
-              </Link>
-            </>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Link to="/login" className="text-sm font-bold text-gray-300 hover:text-white transition-colors">
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:bg-purple-500 hover:text-white transition-all flex items-center gap-2 group"
+                >
+                  Join Now <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            )}
+          </div>
 
-        {/* Mobile Menu Button */}
-        <div className="md:hidden">
-          <button onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <button onClick={() => setIsOpen(!isOpen)} className="text-white p-2">
+              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
-      <div className={`md:hidden ${isOpen ? 'block' : 'hidden'}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Home</Link>
-          <Link to="/opportunities" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Opportunities</Link>
-          <Link to="/chat" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Chat</Link>
-          <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Profile</Link>
-        </div>
-        <div className="pt-4 pb-3 border-t border-gray-200">
-          <div className="px-5 flex flex-col space-y-3">
-            {user ? (
-              <>
-                <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-md">
-                  <User className="w-4 h-4 text-blue-600" />
-                  <span className="text-gray-700 font-medium">Welcome, {user.name}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center justify-center gap-2 px-4 py-2 text-center rounded-md border border-red-600 text-red-600 hover:bg-red-50"
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-black/95 border-b border-white/10 overflow-hidden"
+          >
+            <div className="px-4 py-6 space-y-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  onClick={() => setIsOpen(false)}
+                  className="block text-2xl font-bold text-gray-400 hover:text-white"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="px-4 py-2 text-center rounded-md border border-blue-600 text-blue-600 hover:bg-blue-50">
-                  Login
+                  {link.name}
                 </Link>
-                <Link to="/Signup" className="px-4 py-2 text-center rounded-md bg-blue-600 text-white hover:bg-blue-700">
-                  Signup
+              ))}
+              {user && (
+                <Link
+                  to="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-2xl font-bold text-gray-400 hover:text-white"
+                >
+                  My Profile
                 </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+              )}
+
+              <div className="pt-8 border-t border-white/10 flex flex-col gap-4">
+                {user ? (
+                  <button
+                    onClick={() => { handleLogout(); setIsOpen(false); }}
+                    className="flex items-center gap-2 text-red-500 font-bold"
+                  >
+                    <LogOut size={20} /> Logout
+                  </button>
+                ) : (
+                  <>
+                    <Link to="/login" onClick={() => setIsOpen(false)} className="block text-center w-full py-4 text-gray-400 font-bold border border-white/20 rounded-xl">Login</Link>
+                    <Link to="/signup" onClick={() => setIsOpen(false)} className="block text-center w-full py-4 bg-white text-black font-bold rounded-xl">Sign Up</Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };

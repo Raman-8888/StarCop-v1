@@ -5,7 +5,11 @@ const jwt = require('jsonwebtoken');
 // Signup controller
 exports.signup = async (req, res) => {
     try {
-        const { name, username, email, password } = req.body;
+        const { name, username, email, password, accountType } = req.body;
+
+        if (!accountType) {
+            return res.status(400).json({ success: false, message: 'Account type is required' });
+        }
 
         // Check if user already exists (email or username)
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -26,7 +30,9 @@ exports.signup = async (req, res) => {
             name,
             username,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            accountType,
+            isProfileComplete: false
         });
 
         // Generate JWT token
@@ -44,14 +50,70 @@ exports.signup = async (req, res) => {
                 id: user._id,
                 name: user.name,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                accountType: user.accountType,
+                isProfileComplete: user.isProfileComplete
             }
         });
     } catch (error) {
         console.error('Signup error:', error);
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(val => val.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
         res.status(500).json({
             success: false,
             message: 'Error creating user',
+            error: error.message
+        });
+    }
+};
+
+// Update profile controller
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const updates = req.body;
+
+        // Ensure sensitive fields aren't updated here if needed
+        delete updates.password;
+        delete updates.email; // Usually email updates require verification
+
+        // Mark profile as complete
+        updates.isProfileComplete = true;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                accountType: user.accountType,
+                isProfileComplete: user.isProfileComplete,
+                startupDetails: user.startupDetails,
+                investorDetails: user.investorDetails
+            }
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating profile',
             error: error.message
         });
     }

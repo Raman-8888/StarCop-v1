@@ -13,7 +13,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // change to your frontend origin in production
+    origin: process.env.CLIENT_URL || '*', // Allow configured client or all (dev config)
     methods: ['GET', 'POST']
   }
 });
@@ -38,9 +38,13 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 // Import and use auth routes
 const authRoutes = require('./route/auth.route');
 const chatRoutes = require('./route/chat.route');
+const userRoutes = require('./route/user.routes');
+const postRoutes = require('./route/post.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
 
 io.on('connection', (socket) => {
   console.log('Socket connected', socket.id);

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Search, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+import { API_URL } from '../../config';
+
 export default function Sidebar({
     conversations,
     setConversations,
@@ -23,7 +25,8 @@ export default function Sidebar({
 
         try {
             setLoading(true);
-            const res = await fetch(`http://localhost:3002/api/chat/users/search?search=${e.target.value}`, {
+            setLoading(true);
+            const res = await fetch(`${API_URL}/api/chat/users/search?search=${e.target.value}`, {
                 headers: { Authorization: `Bearer ${user.token}` }
             });
             const data = await res.json();
@@ -38,7 +41,8 @@ export default function Sidebar({
     const accessChat = async (userId) => {
         try {
             setLoading(true);
-            const res = await fetch(`http://localhost:3002/api/chat/conversations`, {
+            setLoading(true);
+            const res = await fetch(`${API_URL}/api/chat/conversations`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
