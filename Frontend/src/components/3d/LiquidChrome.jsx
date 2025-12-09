@@ -47,7 +47,14 @@ export const LiquidChrome = ({
 
       vec4 renderImage(vec2 uvCoord) {
           vec2 fragCoord = uvCoord * uResolution.xy;
-          vec2 uv = (2.0 * fragCoord - uResolution.xy) / min(uResolution.x, uResolution.y);
+          // Calculate scale factor to keep feature size consistent across devices
+          // Base constant 800.0 can be tweaked. 
+          // On phone (min~400), scale < 1 (or clamped to 1). 
+          // On desktop (min~1000), scale > 1 (zooms out -> smaller features).
+          float minDim = min(uResolution.x, uResolution.y);
+          float scale = max(1.0, minDim / 600.0);
+          
+          vec2 uv = ((2.0 * fragCoord - uResolution.xy) / minDim) * scale;
 
           for (float i = 1.0; i < 10.0; i++){
               uv.x += uAmplitude / i * cos(i * uFrequencyX * uv.y + uTime + uMouse.x * 3.14159);
@@ -65,16 +72,7 @@ export const LiquidChrome = ({
       }
 
       void main() {
-          vec4 col = vec4(0.0);
-          int samples = 0;
-          for (int i = -1; i <= 1; i++){
-              for (int j = -1; j <= 1; j++){
-                  vec2 offset = vec2(float(i), float(j)) * (1.0 / min(uResolution.x, uResolution.y));
-                  col += renderImage(vUv + offset);
-                  samples++;
-              }
-          }
-          gl_FragColor = col / float(samples);
+          gl_FragColor = renderImage(vUv);
       }
     `;
 

@@ -114,7 +114,7 @@ const HeroScene3D = () => {
                         <LiquidChrome
                             baseColor={[0.2, 0.1, 0.4]}
                             speed={1}
-                            amplitude={0.6}
+                            amplitude={0.3}
                             interactive={true}
                         />
                     </motion.div>

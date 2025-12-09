@@ -22,8 +22,9 @@ export default function Profile() {
 
     useEffect(() => {
         if (profileUsername) {
-            fetchProfile();
-            fetchPosts();
+            fetchProfileAndPosts();
+        } else {
+            setLoading(false);
         }
     }, [profileUsername]);
 
