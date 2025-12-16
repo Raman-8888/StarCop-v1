@@ -83,6 +83,11 @@ const userSchema = new mongoose.Schema({
         portfolio: String,
         website: String,
         location: String
+    },
+    resetPasswordExpires: Date,
+    fcmTokens: {
+        type: [String],
+        default: []
     }
 }, {
     timestamps: true

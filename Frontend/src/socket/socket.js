@@ -3,5 +3,7 @@ import { API_URL } from "../config";
 
 export const socket = io(API_URL, {
   autoConnect: false,
+  transports: ['polling', 'websocket'], // Try polling first, then upgrade
+  withCredentials: true
 });
 

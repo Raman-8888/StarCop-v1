@@ -38,6 +38,9 @@ app.use('/api/posts', postRoutes);
 const opportunityRoutes = require('./route/opportunity.routes');
 app.use('/api/opportunities', opportunityRoutes);
 
+const notificationRoutes = require('./route/notification.routes');
+app.use('/api/notifications', notificationRoutes);
+
 const server = http.listen(3002, () => {
     console.log("server is running on port 3002");
 });

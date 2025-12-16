@@ -13,8 +13,9 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || '*', // Allow configured client or all (dev config)
-    methods: ['GET', 'POST']
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173", process.env.CLIENT_URL],
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -41,16 +42,29 @@ const chatRoutes = require('./route/chat.route');
 const userRoutes = require('./route/user.routes');
 const postRoutes = require('./route/post.routes');
 
+// Make io accessible in routes
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
+
+const opportunityRoutes = require('./route/opportunity.routes');
+const notificationRoutes = require('./route/notification.routes');
+
+app.use('/api/opportunities', opportunityRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 io.on('connection', (socket) => {
   console.log('Socket connected', socket.id);
 
   socket.on('setup', (userData) => {
     socket.join(userData.userId);
+    console.log(`DEBUG: User joined room ${userData.userId}`);
     socket.emit('connected');
   });
 

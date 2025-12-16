@@ -1,5 +1,44 @@
 const User = require('../models/usermodel');
 const Post = require('../models/postmodel');
+const Notification = require('../models/notification.model');
+const { uploadToCloudinary } = require('../utils/cloudinary');
+
+// Update User Profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const { bio, location, website } = req.body;
+        const userId = req.user._id;
+
+        let profilePictureUrl;
+
+        if (req.file) {
+            const result = await uploadToCloudinary(req.file.buffer);
+            profilePictureUrl = result.secure_url;
+        }
+
+        const updateData = {
+            bio,
+            location,
+            website
+        };
+
+        if (profilePictureUrl) {
+            updateData.profilePicture = profilePictureUrl;
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        res.json(updatedUser);
+
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
 
 // Get User Profile
 exports.getProfile = async (req, res) => {
@@ -53,6 +92,30 @@ exports.followUser = async (req, res) => {
         await userToFollow.save();
         await userFollowing.save();
 
+        // Create Notification
+        const notification = new Notification({
+            recipient: userToFollow._id,
+            sender: currentUser._id,
+            type: 'follow',
+            message: `${currentUser.name} started following you`,
+            relatedId: currentUser._id,
+            onModel: 'User'
+        });
+        await notification.save();
+
+        // Emit Socket Event
+        if (req.io) {
+            req.io.to(userToFollow._id.toString()).emit('notification', notification);
+        }
+
+        // Send Push Notification
+        const { sendPushNotification } = require('../utils/notification.util');
+        await sendPushNotification(
+            userToFollow._id,
+            'New Follower',
+            `${currentUser.name} started following you`
+        );
+
         res.json({ message: 'User followed successfully' });
 
     } catch (error) {
@@ -85,6 +148,24 @@ exports.unfollowUser = async (req, res) => {
 
         res.json({ message: 'User unfollowed successfully' });
 
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Save FCM Token
+exports.saveFcmToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+        const userId = req.user._id;
+
+        if (!token) return res.status(400).json({ message: "Token is required" });
+
+        await User.findByIdAndUpdate(userId, {
+            $addToSet: { fcmTokens: token } // prevent duplicates
+        });
+
+        res.json({ message: "Token saved successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

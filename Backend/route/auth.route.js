@@ -12,4 +12,7 @@ router.post('/login', authController.login);
 const { protect } = require('../middleware/auth.middleware');
 router.patch('/update-profile', protect, authController.updateProfile);
 
+// Get current user
+router.get('/me', protect, authController.getMe);
+
 module.exports = router;

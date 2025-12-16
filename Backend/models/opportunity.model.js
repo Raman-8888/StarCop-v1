@@ -1,46 +1,77 @@
 const mongoose = require('mongoose');
 
 const opportunitySchema = new mongoose.Schema({
+    creatorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    creatorRole: {
+        type: String,
+        enum: ['startup', 'investor'],
+        required: true
+    },
     title: {
         type: String,
-        required: [true, 'Title is required'],
+        required: [true, 'Opportunity Title is required'],
         trim: true
-    },
-    description: {
-        type: String,
-        required: [true, 'Description is required']
     },
     industry: {
         type: String,
         required: [true, 'Industry is required']
     },
-    type: {
+    problem: {
         type: String,
-        enum: ['Funding', 'Partnership', 'Challenge', 'Accelerator', 'Hiring'],
-        required: [true, 'Type of opportunity is required']
-    },
-    budget: {
-        type: String, // String to allow ranges like "$10k - $50k"
         required: false
     },
-    deadline: {
-        type: Date,
+    solution: {
+        type: String,
         required: false
     },
-    attachments: [{
-        type: String // URLs to files
+    description: { // New field for generic description
+        type: String,
+        required: false
+    },
+    traction: {
+        type: String,
+        required: false // Optional but recommended
+    },
+    fundingStage: {
+        type: String, // e.g., Pre-Seed, Seed, Series A
+        required: false
+    },
+    investmentRange: {
+        type: String, // e.g., "$100k - $500k"
+        required: false
+    },
+    pitchVideoUrl: {
+        type: String, // Cloudinary URL
+        required: false
+    },
+    galleryUrls: [{
+        type: String // Cloudinary URLs
     }],
-    investor: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+    deckUrl: {
+        type: String, // Cloudinary URL (PDF)
+        required: false
     },
-    status: {
-        type: String,
-        enum: ['Open', 'Closed'],
-        default: 'Open'
+    tags: [{
+        type: String
+    }],
+    visibility: {
+        type: Boolean,
+        default: true
     },
-    applicationsCount: {
+    // Analytics Counters
+    views: {
+        type: Number,
+        default: 0
+    },
+    saves: {
+        type: Number,
+        default: 0
+    },
+    interestCount: {
         type: Number,
         default: 0
     }

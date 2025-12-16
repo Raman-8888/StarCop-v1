@@ -33,8 +33,11 @@ export default function Login() {
         login({
           id: data.user.id,
           name: data.user.name,
+          username: data.user.username,
           email: data.user.email,
-          token: data.token
+          token: data.token,
+          profilePicture: data.user.profilePicture, // Also good to have
+          accountType: data.user.accountType
         });
         navigate('/');
       } else {

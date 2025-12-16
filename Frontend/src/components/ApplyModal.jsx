@@ -22,7 +22,7 @@ const ApplyModal = ({ isOpen, onClose, opportunityId, onApplied }) => {
             onClose();
         } catch (error) {
             console.error("Error applying:", error);
-            alert("Failed to apply. You might have already applied.");
+            toast.error("Failed to apply. You might have already applied.");
         }
     };
 
