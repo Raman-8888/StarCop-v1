@@ -98,17 +98,42 @@ exports.sendMessage = async (req, res) => {
         });
 
         // Update conversation last message
-        await Conversation.findByIdAndUpdate(conversationId, {
+        const updatedConversation = await Conversation.findByIdAndUpdate(conversationId, {
             lastMessage: {
                 text,
                 sender: senderId,
                 createdAt: new Date()
             },
-            $inc: { [`unreadCounts.${senderId === req.user.id ? 'other' : senderId}`]: 1 } // Logic needs refinement for unread counts, simplified for now
-        });
+            $inc: { [`unreadCounts.${senderId === req.user.id ? 'other' : senderId}`]: 1 }
+        }, { new: true }).populate("participants"); // Populate to get participant IDs
 
-        res.status(201).json(newMessage);
+        // Populate sender details for the message payload
+        const fullMessage = await newMessage.populate("senderId", "name username profilePicture");
+
+        // Format message for socket (ensure sender field usage matches frontend expectation)
+        const socketPayload = {
+            ...fullMessage.toObject(),
+            sender: fullMessage.senderId // Frontend likely expects 'sender' object, not just 'senderId'
+        };
+
+        // Real-time Emission
+        if (req.io) {
+            // 1. Emit to the conversation room (for active chat sync)
+            req.io.to(conversationId).emit("message_received", socketPayload);
+
+            // 2. Emit to each participant's personal room (for global notifications)
+            updatedConversation.participants.forEach(participant => {
+                const pId = participant._id.toString();
+                if (pId !== senderId.toString()) {
+                    console.log(`DEBUG: Emitting notification to user ${pId}`);
+                    req.io.to(pId).emit("message_received", socketPayload);
+                }
+            });
+        }
+
+        res.status(201).json(fullMessage);
     } catch (error) {
+        console.error("Send Message Error:", error);
         res.status(500).json({ message: error.message });
     }
 };

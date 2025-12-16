@@ -50,6 +50,7 @@ export default function Signup() {
                 login({
                     id: data.user.id,
                     name: data.user.name,
+                    username: data.user.username,
                     email: data.user.email,
                     token: data.token,
                     accountType: data.user.accountType

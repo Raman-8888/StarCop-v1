@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import { Camera, Save, X } from 'lucide-react';
 import { API_URL } from '../config';
 
@@ -9,16 +10,13 @@ export default function EditProfile() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [imagePreview, setImagePreview] = useState(user?.profilePicture || '');
+    const [file, setFile] = useState(null);
 
     // Basic fields
     const [formData, setFormData] = useState({
         name: user?.name || '',
         bio: user?.bio || '',
         phoneNumber: user?.phoneNumber || '',
-        // Extended details could be here too, but for simplicity we'll focus on the core profile parts requested
-        // and maybe link to the deeper "Complete Profile" pages for the specific business logic if needed.
-        // But the user asked for "Edit Profile" button. 
-        // Let's allow editing the basic fields + "Location" as requested in the must-have list.
     });
 
     const [location, setLocation] = useState('');
@@ -34,51 +32,48 @@ export default function EditProfile() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setImagePreview(URL.createObjectURL(selectedFile));
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
         try {
-            // We need to construct the payload handling potentially nested objects for location
-            // Since location is inside startupDetails or investorDetails
-            const payload = {
-                ...formData,
-            };
+            const formDataToSend = new FormData();
+            formDataToSend.append('name', formData.name);
+            formDataToSend.append('bio', formData.bio);
+            formDataToSend.append('phoneNumber', formData.phoneNumber);
+            formDataToSend.append('location', location);
 
-            if (user.accountType === 'startup') {
-                payload.startupDetails = { ...user.startupDetails, location };
-            } else if (user.accountType === 'investor') {
-                payload.investorDetails = { ...user.investorDetails, location };
+            if (file) {
+                formDataToSend.append('profilePicture', file);
             }
 
-            // Note: Image upload usually requires a separate flow (uploading file -> getting URL)
-            // For this demo, we assume the user might input a URL or we skip the file upload UI complexity
-            // unless we have an Upload component ready. 
-            // We can just keep the profilePicture if it's in formData (if we added it).
-            // Since I didn't add profilePicture input yet, let's assume it's just text for now or we add a URL input.
+            // Note: If you need nested objects like startupDetails/investorDetails, 
+            // you might need to handle them differently with FormData or the backend should accept flat fields and structure them.
+            // Based on my backend update, I used flat fields (bio, location, website) and updated them.
+            // The backend controller: const { bio, location, website } = req.body;
+            // So sending them as flat fields in FormData works perfectly with the updated controller.
 
-            // Quick Fix: Add simple URL input for profile picture for now, or assume separate upload logic.
-            // Given the requirements, I'll stick to text inputs to keep it clean, 
-            // but I should add a way to change the PP if possible.
-            // I'll add a simple URL input for Profile Picture to formData.
-
-            if (imagePreview !== user.profilePicture) {
-                payload.profilePicture = imagePreview;
-            }
-
-            const response = await fetch(`${API_URL}/api/auth/update-profile`, {
-                method: 'PATCH',
+            const response = await fetch(`${API_URL}/api/users/update`, { // Updated endpoint based on user.routes.js
+                method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${user.token}`
+                    // Do NOT set Content-Type header when sending FormData, browser does it automatically with boundary
                 },
-                body: JSON.stringify(payload)
+                body: formDataToSend
             });
 
             const data = await response.json();
 
-            if (data.success) {
-                login({ ...user, ...data.user });
+            if (response.ok) { // Check response.ok property
+                login({ ...user, ...data }); // Update context with new user data
                 navigate('/profile');
             } else {
                 alert(data.message || 'Failed to update profile');
@@ -112,18 +107,20 @@ export default function EditProfile() {
                                     <Camera className="w-8 h-8" />
                                 </div>
                             )}
-                            {/* Overlay for fake upload or URL input hint */}
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <span className="text-xs">Change URL</span>
-                            </div>
+                            <label className="absolute inset-0 flex items-center justify-center cursor-pointer">
+                                <span className="sr-only">Choose profile photo</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Camera className="w-8 h-8 text-white" />
+                                </div>
+                            </label>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Profile Picture URL"
-                            value={imagePreview}
-                            onChange={(e) => setImagePreview(e.target.value)}
-                            className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm w-full max-w-xs text-center focus:border-purple-500 outline-none"
-                        />
+                        <p className="text-gray-400 text-sm">Click to upload new picture</p>
                     </div>
 
                     <div className="space-y-4">

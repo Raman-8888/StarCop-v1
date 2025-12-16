@@ -3,13 +3,14 @@ import { socket } from "../socket/socket";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/Chat/Sidebar";
 import ChatWindow from "../components/Chat/ChatWindow";
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { MessageSquare, ArrowLeft } from "lucide-react";
 
 import { API_URL } from "../config";
 
 export default function Chat() {
   const { user } = useAuth();
+  const location = useLocation();
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
 
@@ -20,6 +21,17 @@ export default function Chat() {
       });
       const data = await res.json();
       setConversations(data);
+
+      // Check for auto-select from navigation state
+      if (location.state?.selectedConversation) {
+        const targetConfig = location.state.selectedConversation;
+        // Verify it exists in the list or use the passed object directly
+        const found = data.find(c => c._id === targetConfig._id);
+        setSelectedChat(found || targetConfig);
+        // Optional: Clear state so refresh doesn't re-trigger? 
+        // Browser history state persists, so it might re-trigger on reload, which is fine.
+        window.history.replaceState({}, document.title);
+      }
     } catch (error) {
       console.error("Failed to fetch conversations", error);
     }
@@ -33,7 +45,8 @@ export default function Chat() {
     fetchConversations();
 
     return () => {
-      socket.disconnect();
+      // Don't disconnect, just cleanup listeners if needed (socket.off)
+      // socket.disconnect(); 
     };
   }, [user]);
 

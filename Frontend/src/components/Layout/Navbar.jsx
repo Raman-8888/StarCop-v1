@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, LogOut, User, ArrowRight } from 'lucide-react';
+import { Menu, X, LogOut, User, ArrowRight, Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { unreadCount, enableNotifications } = useNotification();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,7 +42,7 @@ const Navbar = () => {
               <Link
                 key={link.name}
                 to={link.path}
-                className={`text-sm font-medium transition-colors hover:text-white relative group ${location.pathname === link.path ? 'text-white' : 'text-gray-400'}`}
+                className={`text-sm font-medium transition-colors hover:text-white relative group block px-2 py-1 ${location.pathname === link.path ? 'text-white' : 'text-gray-400'}`}
               >
                 {link.name}
                 {location.pathname === link.path && (
@@ -51,13 +53,47 @@ const Navbar = () => {
                 )}
               </Link>
             ))}
-            {/* Profile Link separate for desktop if logged in? Or in buttons? User requested "keep same vibe". Let's put specific user actions in button area */}
+
+            {/* Dynamic Dashboard Link */}
+            {user && (
+              <Link
+                to={user.accountType === 'investor' ? '/investor-dashboard' : '/dashboard'}
+                className={`text-sm font-medium transition-colors hover:text-white relative group block px-2 py-1 ${location.pathname.includes('dashboard') ? 'text-white' : 'text-gray-400'}`}
+              >
+                Dashboard
+                {location.pathname.includes('dashboard') && (
+                  <motion.div
+                    layoutId="underline"
+                    className="absolute -bottom-1 left-0 w-full h-0.5 bg-purple-500"
+                  />
+                )}
+              </Link>
+            )}
           </div>
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-6">
             {user ? (
               <div className="flex items-center gap-4">
+                {/* Notifications */}
+                <div className="relative group/notif">
+                  <Link to="/notifications" className="relative p-2 text-gray-400 hover:text-white transition-colors block">
+                    <Bell className="w-6 h-6" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-black animate-pulse"></span>
+                    )}
+                  </Link>
+                  {/* Tooltip for enabling notifications */}
+                  {("Notification" in window && Notification.permission !== 'granted') && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); enableNotifications(); }}
+                      className="absolute -bottom-8 right-0 w-max px-2 py-1 bg-blue-600 text-white text-[10px] font-bold rounded shadow-lg opacity-0 group-hover/notif:opacity-100 transition-opacity"
+                    >
+                      Enable Push
+                    </button>
+                  )}
+                </div>
+
                 <Link to="/profile" className="flex items-center gap-3 group cursor-pointer">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center overflow-hidden group-hover:border-purple-500/50 transition-colors">
                     <User className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />

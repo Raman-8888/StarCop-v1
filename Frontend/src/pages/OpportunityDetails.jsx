@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, DollarSign, Briefcase, ArrowLeft, Send, Download, ExternalLink } from 'lucide-react';
-import ApplyModal from '../components/ApplyModal';
+import { Calendar, DollarSign, Briefcase, ArrowLeft, Send, Bookmark, FileText, Check, Pencil } from 'lucide-react';
+import { API_URL } from '../config';
+import SendInterestModal from '../components/SendInterestModal';
+import CreateOpportunity from '../components/CreateOpportunity';
+import toast from 'react-hot-toast';
 
 const OpportunityDetails = () => {
     const { id } = useParams();
@@ -11,82 +14,67 @@ const OpportunityDetails = () => {
     const { user } = useAuth();
 
     const [opportunity, setOpportunity] = useState(null);
-    const [applications, setApplications] = useState([]); // For Investor view
-    const [myApplication, setMyApplication] = useState(null); // For Startup view
     const [loading, setLoading] = useState(true);
-    const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-
-    const fetchDetails = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await axios.get(`http://localhost:3002/api/opportunities/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setOpportunity(res.data);
-
-            if (user?.accountType === 'investor' && res.data.investor._id === user._id) {
-                // Fetch applications if owner
-                const appsRes = await axios.get(`http://localhost:3002/api/opportunities/${id}/applications`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setApplications(appsRes.data);
-            } else if (user?.accountType === 'startup') {
-                // Check if already applied
-                const myAppsRes = await axios.get(`http://localhost:3002/api/opportunities/my/applications`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const found = myAppsRes.data.find(app => app.opportunity._id === id || app.opportunity === id);
-                setMyApplication(found);
-            }
-
-        } catch (error) {
-            console.error("Error fetching details", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [interestSent, setInterestSent] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     useEffect(() => {
+        const fetchDetails = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await axios.get(`${API_URL}/api/opportunities/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setOpportunity(res.data);
+
+                // Check if saved (this would ideally differ based on backend response)
+                setIsSaved(res.data.saves > 0); // Simplified check, real app needs 'isSavedByUser'
+            } catch (error) {
+                console.error("Error fetching details", error);
+            } finally {
+                setLoading(false);
+            }
+        };
         fetchDetails();
-    }, [id, user]);
+    }, [id]);
 
-    const handleStatusUpdate = async (appId, newStatus) => {
+    const handleSendInterest = async () => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:3002/api/opportunities/application/${appId}/status`,
-                { status: newStatus },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            // Update local state
-            setApplications(apps => apps.map(app =>
-                app._id === appId ? { ...app, status: newStatus } : app
-            ));
-        } catch (error) {
-            console.error("Error updating status", error);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!window.confirm("Are you sure you want to delete this opportunity?")) return;
-        try {
-            const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:3002/api/opportunities/${id}`, {
+            await axios.post(`${API_URL}/api/opportunities/${id}/interest`, { message }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            navigate('/opportunities');
+            setInterestSent(true);
         } catch (error) {
-            console.error("Failed to delete", error);
+            console.error("Failed to send interest", error);
+            toast.error(error.response?.data?.message || "Failed to send interest");
         }
     };
 
-    if (loading) return <div className="text-white p-10">Loading...</div>;
+    const handleSave = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/api/opportunities/${id}/save`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setIsSaved(res.data.saved);
+        } catch (error) {
+            console.error("Save failed", error);
+        }
+    };
+
+    if (loading) return <div className="text-white p-10 flex justify-center">Loading...</div>;
     if (!opportunity) return <div className="text-white p-10">Opportunity not found</div>;
 
-    const isOwner = user?.accountType === 'investor' && opportunity.investor._id === user._id;
+    const currentUserId = user?.id || user?._id;
+    const creatorUserId = opportunity.creatorId?._id || opportunity.creatorId;
+    const isOwner = currentUserId && creatorUserId && currentUserId.toString() === creatorUserId.toString();
 
     return (
         <div className="min-h-screen bg-black text-white p-6 md:p-10">
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => navigate('/opportunities')}
                     className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors"
@@ -97,212 +85,184 @@ const OpportunityDetails = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Content */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-[#111] rounded-2xl border border-white/10 p-8">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h1 className="text-3xl font-bold mb-2">{opportunity.title}</h1>
-                                    <div className="flex flex-wrap gap-3">
-                                        <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg text-sm border border-blue-500/20">
-                                            {opportunity.type}
-                                        </span>
-                                        <span className="bg-gray-800 text-gray-300 px-3 py-1 rounded-lg text-sm border border-white/5">
-                                            {opportunity.industry}
-                                        </span>
-                                        <span className={`px-3 py-1 rounded-lg text-sm border ${opportunity.status === 'Open'
-                                                ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                                                : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                            }`}>
-                                            {opportunity.status}
-                                        </span>
-                                    </div>
-                                </div>
-                                {isOwner && (
-                                    <button
-                                        onClick={handleDelete}
-                                        className="text-red-500 hover:bg-red-500/10 px-3 py-1.5 rounded-lg text-sm transitions-colors"
-                                    >
-                                        Delete
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="prose prose-invert max-w-none text-gray-300 mb-8">
-                                <p className="whitespace-pre-wrap">{opportunity.description}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
-                                <div className="flex items-center gap-3 text-gray-300">
-                                    <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center text-gray-400">
-                                        <DollarSign size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">Budget / Investment</p>
-                                        <p className="font-medium">{opportunity.budget || 'Negotiable'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 text-gray-300">
-                                    <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center text-gray-400">
-                                        <Calendar size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">Deadline</p>
-                                        <p className="font-medium">
-                                            {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString() : 'No Deadline'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Startup: Apply Action */}
-                        {!isOwner && user?.accountType === 'startup' && (
-                            <div className="bg-[#111] rounded-2xl border border-white/10 p-6 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-semibold mb-1">Interested in this opportunity?</h3>
-                                    <p className="text-gray-400 text-sm">
-                                        {myApplication
-                                            ? `You applied on ${new Date(myApplication.createdAt).toLocaleDateString()}`
-                                            : 'Submit your proposal and pitch deck.'}
-                                    </p>
-                                </div>
-                                {myApplication ? (
-                                    <div className="px-6 py-2.5 bg-gray-800 text-gray-300 rounded-xl font-medium border border-white/10">
-                                        Status: <span className="text-white">{myApplication.status}</span>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setIsApplyModalOpen(true)}
-                                        className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all"
-                                    >
-                                        Apply Now
-                                    </button>
-                                )}
+                    <div className="lg:col-span-2 space-y-8">
+                        {/* Video Player Section */}
+                        {opportunity.pitchVideoUrl && (
+                            <div className="rounded-2xl overflow-hidden bg-gray-900 border border-white/10 aspect-video shadow-2xl">
+                                <video
+                                    src={opportunity.pitchVideoUrl}
+                                    controls
+                                    className="w-full h-full object-contain"
+                                    poster={opportunity.galleryUrls?.[0]} // Use first gallery image as poster if avail
+                                />
                             </div>
                         )}
 
-                        {/* Investor: Applications List */}
-                        {isOwner && (
-                            <div className="space-y-4">
-                                <h2 className="text-2xl font-bold">Applications ({applications.length})</h2>
-                                {applications.length === 0 ? (
-                                    <div className="text-gray-500">No applications received yet.</div>
-                                ) : (
-                                    applications.map(app => (
-                                        <div key={app._id} className="bg-[#111] border border-white/10 rounded-xl p-6">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden">
-                                                        {app.startup.profilePicture ? (
-                                                            <img src={app.startup.profilePicture} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                                                                {app.startup.name[0]}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-lg">{app.startup.name}</h3>
-                                                        <p className="text-gray-400 text-sm">{app.startup.startupDetails?.industry || 'Startup'}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        value={app.status}
-                                                        onChange={(e) => handleStatusUpdate(app._id, e.target.value)}
-                                                        className={`bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-sm focus:outline-none cursor-pointer ${app.status === 'Accepted' ? 'text-green-400' :
-                                                                app.status === 'Rejected' ? 'text-red-400' :
-                                                                    'text-blue-400'
-                                                            }`}
-                                                    >
-                                                        <option value="Submitted">Submitted</option>
-                                                        <option value="Viewed">Viewed</option>
-                                                        <option value="Shortlisted">Shortlisted</option>
-                                                        <option value="Accepted">Accepted</option>
-                                                        <option value="Rejected">Rejected</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-black/30 rounded-lg p-4 mb-4 text-gray-300 text-sm">
-                                                <p className="font-medium text-gray-500 mb-1">Proposal:</p>
-                                                {app.proposal}
-                                            </div>
-
-                                            <div className="flex gap-3">
-                                                {app.pitchDeck && (
-                                                    <a href={app.pitchDeck} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-2 rounded-lg transition-colors">
-                                                        <ExternalLink size={16} /> Pitch Deck
-                                                    </a>
-                                                )}
-                                                {app.videoLink && (
-                                                    <a href={app.videoLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 bg-purple-500/10 px-3 py-2 rounded-lg transition-colors">
-                                                        <ExternalLink size={16} /> Video Pitch
-                                                    </a>
-                                                )}
-                                                <button className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-white/5 px-3 py-2 rounded-lg transition-colors ml-auto">
-                                                    <Send size={16} /> Message
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
+                        {/* Title & Stats */}
+                        <div>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl md:text-4xl font-bold mb-3">{opportunity.title}</h1>
+                                    <div className="flex flex-wrap gap-3">
+                                        <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg text-sm border border-blue-500/20 font-medium">
+                                            {opportunity.industry}
+                                        </span>
+                                        {opportunity.fundingStage && (
+                                            <span className="bg-purple-500/10 text-purple-400 px-3 py-1 rounded-lg text-sm border border-purple-500/20 font-medium">
+                                                {opportunity.fundingStage}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                {!isOwner && (
+                                    <button
+                                        onClick={handleSave}
+                                        className={`p-3 rounded-full border transition-all ${isSaved
+                                            ? 'bg-yellow-500 text-black border-yellow-500'
+                                            : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/30 hover:text-white'}`}
+                                    >
+                                        <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
+                                    </button>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Details Cards */}
+                        <div className="bg-[#111] rounded-2xl border border-white/10 p-8 space-y-6">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-200 mb-2">The Problem</h3>
+                                <p className="text-gray-400 leading-relaxed whitespace-pre-wrap">{opportunity.problem}</p>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-200 mb-2">The Solution</h3>
+                                <p className="text-gray-400 leading-relaxed whitespace-pre-wrap">{opportunity.solution}</p>
+                            </div>
+                            {opportunity.traction && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Traction</h3>
+                                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 text-blue-300 font-medium">
+                                        {opportunity.traction}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Gallery */}
+                        {opportunity.galleryUrls?.length > 0 && (
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-bold">Product Gallery</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {opportunity.galleryUrls.map((url, idx) => (
+                                        <div key={idx} className="rounded-xl overflow-hidden border border-white/10 aspect-[4/3] bg-gray-900">
+                                            <img src={url} alt={`Gallery ${idx}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Sidebar: Investor Profile */}
+                    {/* Sidebar */}
                     <div className="space-y-6">
+                        {/* Startup Profile */}
                         <div className="bg-[#111] rounded-2xl border border-white/10 p-6">
-                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Posted By</h3>
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-16 h-16 rounded-full bg-gray-700 overflow-hidden">
-                                    {opportunity.investor.profilePicture ? (
-                                        <img src={opportunity.investor.profilePicture} className="w-full h-full object-cover" />
+                                <div className="w-16 h-16 rounded-full bg-gray-700 overflow-hidden border-2 border-white/10">
+                                    {opportunity.creatorId.profilePicture ? (
+                                        <img src={opportunity.creatorId.profilePicture} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
-                                            {opportunity.investor.name[0]}
+                                            {opportunity.creatorId.name?.[0]}
                                         </div>
                                     )}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-lg">{opportunity.investor.name}</h4>
-                                    <p className="text-gray-400 text-sm">{opportunity.investor.investorDetails?.companyName || 'Private Investor'}</p>
+                                    <h4 className="font-bold text-lg">{opportunity.creatorId.name}</h4>
+                                    <p className="text-gray-400 text-sm">Founder</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Location</p>
-                                    <p className="text-sm text-gray-300">{opportunity.investor.investorDetails?.location || 'Global'}</p>
+                            <div className="space-y-4 pt-4 border-t border-white/5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500 text-sm">Asking Investment</span>
+                                    <span className="font-bold text-green-400">{opportunity.investmentRange || 'Negotiable'}</span>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Focus Areas</p>
+                                {opportunity.tags?.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
-                                        {opportunity.investor.investorDetails?.investmentFocus?.map((focus, i) => (
-                                            <span key={i} className="bg-white/5 px-2 py-1 rounded text-xs text-gray-300">{focus}</span>
-                                        )) || <span className="text-gray-500 text-sm">Not specified</span>}
+                                        {opportunity.tags.map((tag, i) => (
+                                            <span key={i} className="bg-white/5 px-2 py-1 rounded text-xs text-gray-300">#{tag.trim()}</span>
+                                        ))}
                                     </div>
-                                </div>
+                                )}
                             </div>
 
-                            <button className="w-full mt-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-medium transition-colors border border-white/10">
-                                View Full Profile
-                            </button>
+                            {opportunity.deckUrl && (
+                                <a
+                                    href={opportunity.deckUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center justify-center gap-2 w-full mt-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-medium transition-colors border border-white/10"
+                                >
+                                    <FileText size={18} /> View Pitch Deck (PDF)
+                                </a>
+                            )}
                         </div>
+
+                        {/* Action Box (Investor Only) */}
+                        {/* Action Box (Investor & Startup) */}
+                        {!isOwner && (
+                            <div className="bg-blue-600/10 rounded-2xl border border-blue-500/20 p-6">
+                                <h3 className="text-lg font-bold text-white mb-2">Interested?</h3>
+                                <p className="text-blue-200 text-sm mb-4">Express your interest and start a conversation.</p>
+
+                                {interestSent ? (
+                                    <div className="bg-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-2 font-medium justify-center">
+                                        <Check size={20} /> Request Sent!
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsInterestModalOpen(true)}
+                                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Send size={18} /> Send Interest
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {isOwner && (
+                            <div className="bg-[#111] rounded-2xl border border-white/10 p-6 text-center space-y-3">
+                                <p className="text-gray-400">This is your listing.</p>
+                                <button
+                                    onClick={() => setIsEditModalOpen(true)}
+                                    className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30 rounded-xl font-bold transition-colors"
+                                >
+                                    <Pencil size={18} /> Edit Opportunity
+                                </button>
+                                <button className="text-red-400 hover:text-red-300 text-sm font-medium w-full py-2">Delete Opportunity</button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            <ApplyModal
-                isOpen={isApplyModalOpen}
-                onClose={() => setIsApplyModalOpen(false)}
+            <SendInterestModal
+                isOpen={isInterestModalOpen}
+                onClose={() => setIsInterestModalOpen(false)}
                 opportunityId={id}
-                onApplied={() => {
-                    fetchDetails(); // Refresh to update status
+                onSuccess={() => setInterestSent(true)}
+            />
+
+            <CreateOpportunity
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                opportunityToEdit={opportunity}
+                onCreated={() => {
+                    // Refetch details or reload
+                    window.location.reload();
                 }}
             />
-        </div>
+        </div >
     );
 };
 

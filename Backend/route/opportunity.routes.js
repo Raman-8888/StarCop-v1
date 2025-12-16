@@ -1,18 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const opportunityController = require('../controllers/opportunity.controller');
-const verifyToken = require('../middleware/authMiddleware');
+const { protect: verifyToken } = require('../middleware/auth.middleware');
+const upload = require('../middleware/multer'); // Use multer for uploads
 
-// Public/Startup Routes
-router.get('/', opportunityController.getAllOpportunities);
+// Public/Shared
+router.get('/', opportunityController.getAllOpportunities); // Investor Feed
+
+// Startup Routes (Specific paths first)
+router.get('/startup/my', verifyToken, opportunityController.getMyOpportunities);
+router.get('/startup/my-interests', verifyToken, opportunityController.getIncomingInterests);
+
+// Investor Routes (Specific paths first)
+router.get('/investor/saved', verifyToken, opportunityController.getSavedOpportunities); // View Saved
+router.get('/investor/sent-interests', verifyToken, opportunityController.getSentInterests); // View Sent Interests
+
+// Generic Routes (Parameterized paths last)
 router.get('/:id', opportunityController.getOpportunityById);
-router.post('/:id/apply', verifyToken, opportunityController.applyToOpportunity);
-router.get('/my/applications', verifyToken, opportunityController.getMyApplications);
 
-// Investor Routes
-router.post('/', verifyToken, opportunityController.createOpportunity);
+router.post('/', verifyToken, upload.fields([
+    { name: 'pitchVideo', maxCount: 1 },
+    { name: 'deck', maxCount: 1 },
+    { name: 'gallery', maxCount: 5 }
+]), opportunityController.createOpportunity);
+
+router.put('/:id', verifyToken, upload.fields([
+    { name: 'pitchVideo', maxCount: 1 },
+    { name: 'deck', maxCount: 1 },
+    { name: 'gallery', maxCount: 5 }
+]), opportunityController.updateOpportunity);
+
 router.delete('/:id', verifyToken, opportunityController.deleteOpportunity);
-router.get('/:id/applications', verifyToken, opportunityController.getOpportunityApplications);
-router.put('/application/:id/status', verifyToken, opportunityController.updateApplicationStatus);
+router.put('/interest/:id/status', verifyToken, opportunityController.updateInterestStatus); // Accept/Reject
+
+router.post('/:id/interest', verifyToken, upload.fields([
+    { name: 'requestVideo', maxCount: 1 }
+]), opportunityController.sendInterest);
+router.post('/:id/save', verifyToken, opportunityController.toggleSaveOpportunity);
+router.get('/investor/saved', verifyToken, opportunityController.getSavedOpportunities); // View Saved
 
 module.exports = router;

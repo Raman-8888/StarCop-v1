@@ -1,40 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { Plus, Search, Filter, Briefcase, DollarSign, Calendar, Clock, ArrowLeft } from 'lucide-react';
-import CreateOpportunity from '../components/CreateOpportunity';
+import { Search, Filter, ArrowLeft, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
+import OpportunityCard from '../components/OpportunityCard';
+import CreateOpportunity from '../components/CreateOpportunity';
+import LiquidChrome from '../components/3d/LiquidChrome';
+import { motion } from 'framer-motion';
 
 const Opportunities = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+
+    // Unified Feed State
     const [opportunities, setOpportunities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [editingOpportunity, setEditingOpportunity] = useState(null); // New State
 
-    // View Mode for Startup: 'browse' or 'applications'
-    const [viewMode, setViewMode] = useState('browse');
-    const [myApplications, setMyApplications] = useState([]);
+    const [filters, setFilters] = useState({
+        industry: '',
+        fundingStage: '',
+        investmentRange: '',
+        search: ''
+    });
 
-    // Filters
-    const [filterIndustry, setFilterIndustry] = useState('');
-    const [filterType, setFilterType] = useState('');
+    // Handle opening modal for edit
+    const handleEdit = (opportunity) => {
+        setEditingOpportunity(opportunity);
+        setIsCreateModalOpen(true);
+    };
+
+    // Reset editing state when modal closes
+    const handleModalClose = () => {
+        setIsCreateModalOpen(false);
+        setEditingOpportunity(null);
+    };
 
     const fetchOpportunities = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const url = 'http://localhost:3002/api/opportunities';
-
-            const params = {};
-            if (filterIndustry) params.industry = filterIndustry;
-            if (filterType) params.type = filterType;
-
-            const res = await axios.get(url, {
+            const res = await axios.get(`${API_URL}/api/opportunities`, {
                 headers: { Authorization: `Bearer ${token}` },
-                params
+                params: filters
             });
-            setOpportunities(res.data);
+            const currentUserId = user?.id || user?._id;
+            console.log("Sorting Feed. Current User:", currentUserId);
+
+            let allOps = res.data;
+            let sortedData = allOps;
+
+            if (currentUserId) {
+                const ownerOps = [];
+                const otherOps = [];
+
+                allOps.forEach(op => {
+                    const creatorId = op.creatorId?._id || op.creatorId;
+                    const isOwner = creatorId && currentUserId.toString() === creatorId.toString();
+                    if (isOwner) {
+                        ownerOps.push(op);
+                    } else {
+                        otherOps.push(op);
+                    }
+                });
+
+                console.log(`Found ${ownerOps.length} owner posts and ${otherOps.length} others.`);
+                sortedData = [...ownerOps, ...otherOps];
+            }
+
+            setOpportunities(sortedData);
         } catch (error) {
             console.error("Error fetching opportunities", error);
         } finally {
@@ -42,260 +78,154 @@ const Opportunities = () => {
         }
     };
 
-    const fetchMyApplications = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem('token');
-            const res = await axios.get('http://localhost:3002/api/opportunities/my/applications', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setMyApplications(res.data);
-        } catch (error) {
-            console.error("Error fetching applications", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        if (viewMode === 'browse' || user?.accountType === 'investor') {
-            fetchOpportunities();
-        } else if (viewMode === 'applications' && user?.accountType === 'startup') {
-            fetchMyApplications();
-        }
-    }, [filterIndustry, filterType, viewMode, user]);
-
-    // Derived state for display
-    const displayedOpportunities = user?.accountType === 'investor'
-        ? opportunities.filter(op => op.investor?._id === user._id || op.investor === user._id)
-        : opportunities;
+        fetchOpportunities();
+    }, [filters, user]);
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 md:p-10">
-            <div className="max-w-7xl mx-auto space-y-8">
+        <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden">
+            {/* 3D Background */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                <LiquidChrome baseColor={[0.1, 0.1, 0.1]} speed={0.2} amplitude={0.3} interactive={false} />
+            </div>
 
-                {/* Header Section */}
-                <button
-                    onClick={() => navigate('/')}
-                    className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors"
+            <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10 space-y-8">
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-between items-center"
                 >
-                    <ArrowLeft size={20} className="mr-2" />
-                    Go Back to Home
-                </button>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <button
+                        onClick={() => navigate('/')}
+                        className="flex items-center text-gray-400 hover:text-white transition-colors uppercase text-xs tracking-wider font-bold"
+                    >
+                        <ArrowLeft size={16} className="mr-2" />
+                        Back to Home
+                    </button>
+
+                    <div className="flex items-center">
+                        {user?.accountType === 'startup' && (
+                            <button
+                                onClick={() => navigate('/dashboard')}
+                                className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold transition-all mr-4 shadow-lg hover:shadow-purple-500/20"
+                            >
+                                My Dashboard
+                            </button>
+                        )}
+
+                        {user && (
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5"
+                            >
+                                <Plus size={20} />
+                                {user.accountType === 'investor' ? 'Create Request' : 'Post Opportunity'}
+                            </button>
+                        )}
+                    </div>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4"
+                >
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                            {user?.accountType === 'investor' ? 'My Opportunities' : 'Explore Opportunities'}
+                        <h1 className="text-5xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-500 drop-shadow-sm">
+                            Discover.
                         </h1>
-                        <p className="text-gray-400 mt-1">
-                            {user?.accountType === 'investor'
-                                ? 'Manage your postings and review applications'
-                                : 'Find funding, partnerships, and more'}
+                        <p className="text-gray-400 mt-2 text-lg max-w-xl leading-relaxed">
+                            Connect with high-potential startups and visionary investors in a curated ecosystem.
                         </p>
                     </div>
+                </motion.div>
 
-                    {user?.accountType === 'investor' && (
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
-                        >
-                            <Plus size={20} />
-                            Create Opportunity
-                        </button>
-                    )}
+                {/* Search & Filters */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="backdrop-blur-xl bg-white/5 border border-white/10 p-2 rounded-2xl flex flex-wrap gap-2 items-center shadow-2xl"
+                >
+                    <div className="flex-1 relative min-w-[250px] group">
+                        <Search className="absolute left-4 top-3.5 text-gray-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                        <input
+                            type="text"
+                            placeholder="Search by keyword..."
+                            className="bg-transparent border-none rounded-xl pl-12 pr-4 py-3 text-base text-white focus:ring-0 w-full placeholder-gray-500"
+                            value={filters.search}
+                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        />
+                    </div>
 
-                    {user?.accountType === 'startup' && (
-                        <div className="flex bg-[#111] p-1 rounded-xl border border-white/10">
-                            <button
-                                onClick={() => setViewMode('browse')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'browse' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
-                                    }`}
+                    <div className="h-8 w-px bg-white/10 mx-2 hidden md:block"></div>
+
+                    <select
+                        className="bg-black/20 hover:bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-gray-300 focus:outline-none focus:border-blue-500 focus:text-white transition-colors cursor-pointer"
+                        value={filters.industry}
+                        onChange={(e) => setFilters({ ...filters, industry: e.target.value })}
+                    >
+                        <option value="">All Industries</option>
+                        <option value="Tech">Tech</option>
+                        <option value="Health">Health</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Education">Education</option>
+                    </select>
+
+                    <select
+                        className="bg-black/20 hover:bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-gray-300 focus:outline-none focus:border-blue-500 focus:text-white transition-colors cursor-pointer"
+                        value={filters.fundingStage}
+                        onChange={(e) => setFilters({ ...filters, fundingStage: e.target.value })}
+                    >
+                        <option value="">Any Stage</option>
+                        <option value="Pre-Seed">Pre-Seed</option>
+                        <option value="Seed">Seed</option>
+                        <option value="Series A">Series A</option>
+                    </select>
+                </motion.div>
+
+                {/* Grid */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                    {loading ? (
+                        <div className="col-span-full py-32 flex justify-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                    ) : opportunities.length > 0 ? (
+                        opportunities.map((op, index) => (
+                            <motion.div
+                                key={op._id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 * index }}
                             >
-                                Browse
-                            </button>
-                            <button
-                                onClick={() => setViewMode('applications')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'applications' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                My Applications
-                            </button>
+                                <OpportunityCard
+                                    opportunity={op}
+                                    isInvestor={true}
+                                    onEdit={handleEdit}
+                                />
+                            </motion.div>
+                        ))
+                    ) : (
+                        <div className="col-span-full text-center py-32">
+                            <h3 className="text-2xl font-bold text-gray-300">No matches found</h3>
+                            <p className="text-gray-500 mt-2">Try adjusting your filters to broaden your search.</p>
                         </div>
                     )}
-                </div>
-
-                {/* Filters Bar (Startup View - Browse Mode) */}
-                {user?.accountType === 'startup' && viewMode === 'browse' && (
-                    <div className="bg-[#111] p-4 rounded-xl border border-white/10 flex flex-wrap gap-4 items-center">
-                        <div className="flex items-center gap-2 text-gray-400">
-                            <Filter size={18} />
-                            <span className="text-sm font-medium">Filters:</span>
-                        </div>
-
-                        <select
-                            value={filterIndustry}
-                            onChange={(e) => setFilterIndustry(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                        >
-                            <option value="">All Industries</option>
-                            <option value="Tech">Tech</option>
-                            <option value="Health">Health</option>
-                            <option value="Finance">Finance</option>
-                            <option value="Education">Education</option>
-                        </select>
-
-                        <select
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                        >
-                            <option value="">All Types</option>
-                            <option value="Funding">Funding</option>
-                            <option value="Partnership">Partnership</option>
-                            <option value="Challenge">Challenge</option>
-                            <option value="Accelerator">Accelerator</option>
-                            <option value="Hiring">Hiring</option>
-                        </select>
-
-                        <div className="ml-auto relative">
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 w-full md:w-64"
-                            />
-                            <Search className="absolute left-3 top-2.5 text-gray-500" size={16} />
-                        </div>
-                    </div>
-                )}
-
-                {/* Content Area */}
-                {viewMode === 'browse' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {loading ? (
-                            <p className="text-gray-400">Loading opportunities...</p>
-                        ) : displayedOpportunities.length > 0 ? (
-                            displayedOpportunities.map(op => (
-                                <div
-                                    key={op._id}
-                                    onClick={() => navigate(`/opportunities/${op._id}`)}
-                                    className="bg-[#111] rounded-2xl border border-white/5 p-6 hover:border-blue-500/30 transition-all hover:bg-[#151515] cursor-pointer group"
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${op.type === 'Funding' ? 'border-green-500/30 text-green-400 bg-green-500/10' :
-                                            op.type === 'Partnership' ? 'border-purple-500/30 text-purple-400 bg-purple-500/10' :
-                                                'border-blue-500/30 text-blue-400 bg-blue-500/10'
-                                            }`}>
-                                            {op.type}
-                                        </span>
-                                        {op.status === 'Closed' && (
-                                            <span className="text-red-500 text-xs font-bold uppercase tracking-wider">Closed</span>
-                                        )}
-                                    </div>
-
-                                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{op.title}</h3>
-                                    <p className="text-gray-400 line-clamp-2 text-sm mb-4">{op.description}</p>
-
-                                    <div className="space-y-2 mb-6">
-                                        <div className="flex items-center gap-2 text-gray-500 text-sm">
-                                            <Briefcase size={16} />
-                                            <span>{op.industry}</span>
-                                        </div>
-                                        {op.budget && (
-                                            <div className="flex items-center gap-2 text-gray-500 text-sm">
-                                                <DollarSign size={16} />
-                                                <span>{op.budget}</span>
-                                            </div>
-                                        )}
-                                        {op.deadline && (
-                                            <div className="flex items-center gap-2 text-gray-500 text-sm">
-                                                <Clock size={16} />
-                                                <span>Due: {new Date(op.deadline).toLocaleDateString()}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                                                {op.investor?.profilePicture ? (
-                                                    <img src={op.investor.profilePicture} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <span className="text-xs font-bold text-white">{op.investor?.name?.[0] || 'I'}</span>
-                                                )}
-                                            </div>
-                                            <span className="text-sm font-medium text-gray-300">{op.investor?.name || 'Investor'}</span>
-                                        </div>
-                                        {user?.accountType === 'investor' && (
-                                            <div className="text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded">
-                                                {op.applicationsCount || 0} Applicants
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="col-span-full text-center py-20 text-gray-500">
-                                No opportunities found.
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    // My Applications View
-                    <div className="space-y-4">
-                        {myApplications.length > 0 ? (
-                            myApplications.map(app => (
-                                <div key={app._id} className="bg-[#111] rounded-xl border border-white/10 p-6 flex justify-between items-center hover:border-blue-500/30 transition-all">
-                                    <div className="flex-1">
-                                        <h3
-                                            onClick={() => navigate(`/opportunities/${app.opportunity?._id}`)}
-                                            className="text-xl font-bold text-white hover:text-blue-400 cursor-pointer mb-2"
-                                        >
-                                            {app.opportunity?.title || 'Opportunity Unavailable'}
-                                        </h3>
-                                        <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white">
-                                                    {app.investor?.name?.[0] || 'I'}
-                                                </div>
-                                                <span>{app.investor?.name}</span>
-                                            </div>
-                                            <span>•</span>
-                                            <span>Applied: {new Date(app.createdAt).toLocaleDateString()}</span>
-                                        </div>
-                                        <div className="mt-2 bg-black/30 p-2 rounded text-sm text-gray-500 line-clamp-1 max-w-2xl">
-                                            <span className="text-gray-400 font-medium">Proposal:</span> {app.proposal}
-                                        </div>
-                                    </div>
-
-                                    <div className="ml-4 flex flex-col items-end gap-2">
-                                        <div className={`px-4 py-2 rounded-lg text-sm font-bold border ${app.status === 'Accepted' ? 'border-green-500/30 text-green-400 bg-green-500/10' :
-                                            app.status === 'Rejected' ? 'border-red-500/30 text-red-400 bg-red-500/10' :
-                                                'border-blue-500/30 text-blue-400 bg-blue-500/10'
-                                            }`}>
-                                            {app.status}
-                                        </div>
-                                        <button
-                                            onClick={() => navigate(`/opportunities/${app.opportunity?._id}`)}
-                                            className="text-gray-400 hover:text-white text-sm underline"
-                                        >
-                                            View Details
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-20 text-gray-500">
-                                You haven't applied to any opportunities yet.
-                            </div>
-                        )}
-                    </div>
-                )}
+                </motion.div>
             </div>
 
             <CreateOpportunity
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                onClose={handleModalClose}
                 onCreated={fetchOpportunities}
+                opportunityToEdit={editingOpportunity}
             />
         </div>
     );
