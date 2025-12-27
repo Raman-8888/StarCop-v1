@@ -1,0 +1,4 @@
+my_db
+Raman969079
+
+mongodb+srv://my_db:<db_password>@testpro.p8kmwn2.mongodb.net/?appName=testpro

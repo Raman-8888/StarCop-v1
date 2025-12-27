@@ -1,0 +1,2 @@
+Dotenv Parsed Keys: PORT, MONGO_URL, Cloudinary_Cloud_Name, Cloudinary_Api_Key, Cloudinary_Api_Secret, Gemini_api, SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_BUCKET
+Final GEMINI_API_KEY: UNDEFINED
