@@ -21,6 +21,7 @@ import StartupDashboard from './pages/StartupDashboard';
 import InvestorDashboard from './pages/InvestorDashboard';
 import Notifications from './pages/Notifications';
 import DigitalPass from './pages/DigitalPass';
+import Requests from './pages/Requests';
 import CreateOpportunity from './components/CreateOpportunity';
 import ProtectedRoute from './components/ProtectedRoute';
 import { API_URL } from './config';
@@ -31,7 +32,9 @@ const MainLayout = () => {
   return (
     <>
       <Navbar />
-      <Outlet />
+      <main className="md:pt-0 pt-16 pb-16 min-h-screen">
+        <Outlet />
+      </main>
     </>
   );
 };
@@ -69,28 +72,25 @@ function App() {
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
-            {/* 2. Routes that should NOT have the Navbar */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/Signup" element={<Signup />} />
-            <Route path="/complete-profile/startup" element={<CompleteProfileStartup />} />
-            <Route path="/complete-profile/investor" element={<CompleteProfileInvestor />} />
-            <Route path="/edit-profile" element={<EditProfile />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/user/:username" element={<Profile />} />
-            <Route path="/opportunities" element={<Opportunities />} />
-            <Route path="/opportunities/saved" element={<SavedOpportunitiesView />} />
-            <Route path="/opportunities/:id" element={<OpportunityDetails />} />
-            <Route path="/dashboard" element={<StartupDashboard />} />
-            <Route path="/investor-dashboard" element={<InvestorDashboard />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/digital-pass/:username" element={<DigitalPass />} />
-
-            {/* 3. Wrap all routes that SHOULD have the Navbar inside the MainLayout route */}
-            <Route path="/chat" element={<Chat />} />
+            {/* All routes now have the Navbar */}
             <Route element={<MainLayout />}>
               <Route path="/" element={<Home />} />
-              {/* Profile routes moved out to disable Navbar */}
-              {/* You can add other routes like /profile, /chat, etc. here */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/Signup" element={<Signup />} />
+              <Route path="/complete-profile/startup" element={<CompleteProfileStartup />} />
+              <Route path="/complete-profile/investor" element={<CompleteProfileInvestor />} />
+              <Route path="/edit-profile" element={<EditProfile />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/user/:username" element={<Profile />} />
+              <Route path="/opportunities" element={<Opportunities />} />
+              <Route path="/opportunities/saved" element={<SavedOpportunitiesView />} />
+              <Route path="/opportunities/:id" element={<OpportunityDetails />} />
+              <Route path="/dashboard" element={<StartupDashboard />} />
+              <Route path="/investor-dashboard" element={<InvestorDashboard />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/requests" element={<Requests />} />
+              <Route path="/digital-pass/:username" element={<DigitalPass />} />
+              <Route path="/chat" element={<Chat />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -3,7 +3,7 @@ const Notification = require('../models/notification.model');
 exports.getMyNotifications = async (req, res) => {
     try {
         const notifications = await Notification.find({ recipient: req.user._id })
-            .populate('sender', 'name profilePicture accountType')
+            .populate('sender', 'name username profilePicture accountType')
             .sort({ createdAt: -1 });
         res.status(200).json(notifications);
     } catch (error) {

@@ -6,7 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 import OpportunityCard from '../components/OpportunityCard';
 import CreateOpportunity from '../components/CreateOpportunity';
-import LiquidChrome from '../components/3d/LiquidChrome';
+import ConfirmationModal from '../components/ConfirmationModal';
+import UnauthorizedModal from '../components/UnauthorizedModal';
+
 import { motion } from 'framer-motion';
 
 const Opportunities = () => {
@@ -18,6 +20,17 @@ const Opportunities = () => {
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingOpportunity, setEditingOpportunity] = useState(null); // New State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [opportunityToDelete, setOpportunityToDelete] = useState(null);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+
+    const handleCardClick = (opportunity) => {
+        if (!user) {
+            setShowAuthModal(true);
+        } else {
+            navigate(`/opportunities/${opportunity._id}`);
+        }
+    };
 
     const [filters, setFilters] = useState({
         industry: '',
@@ -36,6 +49,29 @@ const Opportunities = () => {
     const handleModalClose = () => {
         setIsCreateModalOpen(false);
         setEditingOpportunity(null);
+    };
+
+    // Handle delete click
+    const handleDelete = (opportunityId) => {
+        setOpportunityToDelete(opportunityId);
+        setIsDeleteModalOpen(true);
+    };
+
+    // Confirm delete
+    const confirmDelete = async () => {
+        if (!opportunityToDelete) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`${API_URL}/api/opportunities/${opportunityToDelete}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Update state to remove deleted item
+            setOpportunities(prev => prev.filter(op => op._id !== opportunityToDelete));
+            setOpportunityToDelete(null);
+        } catch (error) {
+            console.error("Delete failed", error);
+        }
     };
 
     const fetchOpportunities = async () => {
@@ -83,49 +119,11 @@ const Opportunities = () => {
     }, [filters, user]);
 
     return (
-        <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden">
-            {/* 3D Background */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <LiquidChrome baseColor={[0.1, 0.1, 0.1]} speed={0.2} amplitude={0.3} interactive={false} />
-            </div>
+        <div className="relative min-h-screen text-white font-sans overflow-hidden">
 
-            <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10 space-y-8">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-between items-center"
-                >
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center text-gray-400 hover:text-white transition-colors uppercase text-xs tracking-wider font-bold"
-                    >
-                        <ArrowLeft size={16} className="mr-2" />
-                        Back to Home
-                    </button>
 
-                    <div className="flex items-center">
-                        {user?.accountType === 'startup' && (
-                            <button
-                                onClick={() => navigate('/dashboard')}
-                                className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold transition-all mr-4 shadow-lg hover:shadow-purple-500/20"
-                            >
-                                My Dashboard
-                            </button>
-                        )}
-
-                        {user && (
-                            <button
-                                onClick={() => setIsCreateModalOpen(true)}
-                                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5"
-                            >
-                                <Plus size={20} />
-                                {user.accountType === 'investor' ? 'Create Request' : 'Post Opportunity'}
-                            </button>
-                        )}
-                    </div>
-                </motion.div>
-
+            <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10 space-y-8 pt-24" style={{ paddingTop: '6rem' }}>
+                {/* Header with Create Button */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -140,6 +138,16 @@ const Opportunities = () => {
                             Connect with high-potential startups and visionary investors in a curated ecosystem.
                         </p>
                     </div>
+
+                    {user && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5 whitespace-nowrap"
+                        >
+                            <Plus size={20} />
+                            {user.accountType === 'investor' ? 'Create Request' : 'Post Opportunity'}
+                        </button>
+                    )}
                 </motion.div>
 
                 {/* Search & Filters */}
@@ -209,6 +217,8 @@ const Opportunities = () => {
                                     opportunity={op}
                                     isInvestor={true}
                                     onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    onClick={() => handleCardClick(op)}
                                 />
                             </motion.div>
                         ))
@@ -219,7 +229,7 @@ const Opportunities = () => {
                         </div>
                     )}
                 </motion.div>
-            </div>
+            </div >
 
             <CreateOpportunity
                 isOpen={isCreateModalOpen}
@@ -227,7 +237,23 @@ const Opportunities = () => {
                 onCreated={fetchOpportunities}
                 opportunityToEdit={editingOpportunity}
             />
-        </div>
+
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Delete Opportunity?"
+                message="Are you sure you want to remove this opportunity? This will permanently delete all data, including received interests and analytics. This action cannot be undone."
+                confirmText="Yes, Delete It"
+            />
+
+            <UnauthorizedModal
+                isOpen={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+                title="Opportunity Access Required"
+                message="Please log in to access the opportunity details."
+            />
+        </div >
     );
 };
 

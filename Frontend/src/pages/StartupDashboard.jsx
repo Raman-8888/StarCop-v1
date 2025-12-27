@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Plus, Eye, Bookmark, TrendingUp, Check, X, Clock, ChevronLeft, Trash2 } from 'lucide-react';
+import { Plus, Eye, Bookmark, TrendingUp, Check, X, Clock, ChevronLeft, Trash2, MessageCircle } from 'lucide-react';
 import CreateOpportunity from '../components/CreateOpportunity';
 import ConfirmationModal from '../components/ConfirmationModal';
-import LiquidChrome from '../components/3d/LiquidChrome';
+
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -76,26 +76,34 @@ const StartupDashboard = () => {
         }
     };
 
-    return (
-        <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden">
-            {/* 3D Background */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <LiquidChrome baseColor={[0.1, 0.05, 0.1]} speed={0.15} amplitude={0.2} interactive={false} />
-            </div>
+    const handleMessage = async (targetUserId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/api/chat/conversations`,
+                { userId: targetUserId },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
-            <div className="relative z-10 container mx-auto px-6 py-8 md:px-8 md:py-12 max-w-7xl min-h-screen flex flex-col gap-8">
+            // Navigate to chat with the conversation object
+            navigate('/chat', { state: { selectedConversation: res.data } });
+        } catch (error) {
+            console.error("Failed to start chat", error);
+            toast.error("Failed to open chat");
+        }
+    };
+
+    return (
+        <div className="relative min-h-screen text-white font-sans overflow-hidden">
+
+
+            <div className="relative z-10 container mx-auto px-6 py-8 md:px-8 md:py-12 max-w-7xl min-h-screen flex flex-col gap-8 pt-24" style={{ paddingTop: '6rem' }}>
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
                 >
                     <div className="backdrop-blur-sm bg-black/20 p-5 rounded-2xl border border-white/5 shadow-xl flex items-center gap-4">
-                        <button
-                            onClick={() => navigate('/opportunities')}
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white"
-                        >
-                            <ChevronLeft size={28} />
-                        </button>
+
                         <div>
                             <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-gray-200 to-gray-500 drop-shadow-sm">
                                 Dashboard.
@@ -268,17 +276,17 @@ const StartupDashboard = () => {
                                     <div key={req._id} className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row justify-between gap-6 hover:bg-white/10 transition-colors shadow-xl">
                                         <div className="flex gap-4 items-start">
                                             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-700 to-black border border-white/10 overflow-hidden shrink-0 shadow-lg">
-                                                {req.investor?.profilePicture ? (
-                                                    <img src={req.investor.profilePicture} className="w-full h-full object-cover" />
+                                                {(req.sender?.profilePicture || req.investor?.profilePicture) ? (
+                                                    <img src={req.sender?.profilePicture || req.investor?.profilePicture} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                                                        {req.investor?.name?.[0]}
+                                                        {(req.sender?.name || req.investor?.name)?.[0]}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-1">
                                                 <div className="flex items-baseline gap-2 mb-1">
-                                                    <h4 className="font-bold text-white text-lg">{req.investor?.name}</h4>
+                                                    <h4 className="font-bold text-white text-lg">{req.sender?.name || req.investor?.name}</h4>
                                                     <span className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-0.5 rounded border border-white/5 uppercase tracking-wide">Interested in: <span className="text-white">{req.opportunity?.title}</span></span>
                                                 </div>
                                                 {req.message && (
@@ -317,11 +325,21 @@ const StartupDashboard = () => {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <div className={`w-full text-center px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border shadow-md ${req.status === 'accepted'
-                                                    ? 'border-green-500/20 text-green-400 bg-green-500/10 shadow-green-500/10'
-                                                    : 'border-red-500/20 text-red-400 bg-red-500/10 shadow-red-500/10'
-                                                    }`}>
-                                                    {req.status}
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <div className={`w-full text-center px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border shadow-md ${req.status === 'accepted'
+                                                        ? 'border-green-500/20 text-green-400 bg-green-500/10 shadow-green-500/10'
+                                                        : 'border-red-500/20 text-red-400 bg-red-500/10 shadow-red-500/10'
+                                                        }`}>
+                                                        {req.status}
+                                                    </div>
+                                                    {req.status === 'accepted' && (
+                                                        <button
+                                                            onClick={() => handleMessage(req.sender?._id || req.investor?._id)}
+                                                            className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-all font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95"
+                                                        >
+                                                            <MessageCircle size={14} /> Message
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

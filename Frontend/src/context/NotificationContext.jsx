@@ -74,11 +74,11 @@ export const NotificationProvider = ({ children }) => {
 
                 // 2. Native Notification (System)
                 if ("Notification" in window && Notification.permission === "granted") {
-                    // ... (rest is same)
                     const notification = new Notification("StarCop Notification", {
                         body: data.message,
-                        icon: '/vite.svg', // Ensure this path is correct
-                        silent: false
+                        icon: '/logo.png',
+                        silent: false,
+                        requireInteraction: true // Keeps notification until user interacts
                     });
 
                     notification.onclick = function () {
@@ -86,8 +86,7 @@ export const NotificationProvider = ({ children }) => {
                         notification.close();
                     };
 
-                    // Auto close after 5 seconds
-                    setTimeout(() => notification.close(), 5000);
+                    // Removed auto-close timeout to let it stay in Windows Action Center
                 }
 
                 setUnreadCount(prev => prev + 1);
@@ -111,15 +110,16 @@ export const NotificationProvider = ({ children }) => {
                 if ("Notification" in window && Notification.permission === "granted") {
                     const notification = new Notification(`Message from ${senderName}`, {
                         body: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
-                        icon: '/vite.svg',
-                        silent: false
+                        icon: '/logo.png',
+                        silent: false,
+                        requireInteraction: true
                     });
 
                     notification.onclick = function () {
                         window.focus();
                         notification.close();
                     };
-                    setTimeout(() => notification.close(), 5000);
+                    // Removed timeout
                 }
 
                 // Toast Notification
@@ -132,17 +132,50 @@ export const NotificationProvider = ({ children }) => {
 
             socket.on('message_received', handleNewMessage);
 
+            // Listen for connection approval
+            const handleConnectionApproved = (data) => {
+                console.log("DEBUG: Connection approved", data);
+
+                // Toast notification
+                toast.success(`Connection approved! You can now chat with ${data.otherUser?.name || 'this user'}.`, {
+                    icon: '🤝',
+                    duration: 6000
+                });
+
+                // Native notification
+                if ("Notification" in window && Notification.permission === "granted") {
+                    const notification = new Notification("Connection Approved!", {
+                        body: `You can now chat with ${data.otherUser?.name || 'this user'}`,
+                        icon: '/logo.png',
+                        silent: false,
+                        requireInteraction: true
+                    });
+
+                    notification.onclick = function () {
+                        window.focus();
+                        // Navigate to chat page
+                        window.location.href = '/chat';
+                        notification.close();
+                    };
+                }
+
+                setUnreadCount(prev => prev + 1);
+            };
+
+            socket.on('connection_approved', handleConnectionApproved);
+
             const interval = setInterval(fetchUnreadCount, 30000);
             return () => {
                 clearInterval(interval);
                 socket.off('notification', handleNotification);
                 socket.off('message_received', handleNewMessage);
-                // We do NOT disconnect here as Chat might need it, 
-                // OR we disconnect only if we are sure no one else is using it?
-                // Ideally, we disconnect on logout. 
-                // Since this provider is at App level, unmounting means App is closing or user logging out.
-                // So disconnecting is fine.
-                socket.disconnect();
+                socket.off('connection_approved', handleConnectionApproved);
+
+                // Do NOT disconnect socket here. 
+                // The socket is a singleton reused across the app (Chat, etc).
+                // Disconnecting on NotificationContext unmount (which is global) or effect re-run
+                // causes excessive re-connections and race conditions ("closed before established").
+                // Only disconnect on explicit logout or let the browser handle it on tab close.
             };
         } else {
             setUnreadCount(0);
@@ -154,9 +187,17 @@ export const NotificationProvider = ({ children }) => {
             toast.error("This browser does not support desktop notifications.");
             return;
         }
+
         if (Notification.permission === 'granted') {
-            toast.success("Notifications already enabled!");
-            new Notification("Test Notification", { body: "This is how you'll be notified!" });
+            // Always fire a test to verify Windows side
+            console.log("DEBUG: Firing Test Notification");
+            try {
+                new Notification("Test Notification", { body: "If you see this, Windows notifications work!" });
+                toast.success("Test notification sent to Windows!");
+            } catch (e) {
+                console.error("Test notification failed", e);
+                toast.error("Failed to fire test notification.");
+            }
             return;
         }
 

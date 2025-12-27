@@ -28,7 +28,18 @@ const investorInterestSchema = new mongoose.Schema({
     requestVideoUrl: {
         type: String,
         required: false
-    }
+    },
+    attachments: [{
+        type: {
+            type: String,
+            enum: ['image', 'video', 'pdf', 'document'],
+            required: true
+        },
+        url: { type: String, required: true },
+        filename: { type: String, required: true },
+        size: { type: Number },
+        mimeType: { type: String }
+    }]
 }, {
     timestamps: true
 });

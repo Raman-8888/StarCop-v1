@@ -3,11 +3,15 @@ import axios from 'axios';
 import { X, Upload, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
+import ThumbnailCropper from './ThumbnailCropper';
 
 const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = null }) => {
     const { user } = useAuth();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [isCropperOpen, setIsCropperOpen] = useState(false);
+    const [thumbnailPreview, setThumbnailPreview] = useState(null);
     const [formData, setFormData] = useState({
         title: '',
         industry: '',
@@ -22,6 +26,7 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
     });
     const [files, setFiles] = useState({
         pitchVideo: null,
+        thumbnail: null,
         deck: null,
         gallery: []
     });
@@ -41,7 +46,7 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
                 visibility: opportunityToEdit.visibility
             });
             // Reset files as we don't show existing files in file inputs for security/complexity reasons
-            setFiles({ pitchVideo: null, deck: null, gallery: [] });
+            setFiles({ pitchVideo: null, thumbnail: null, deck: null, gallery: [] });
             setStep(1);
         } else {
             // Reset form for create mode
@@ -57,7 +62,7 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
                 tags: '',
                 visibility: true
             });
-            setFiles({ pitchVideo: null, deck: null, gallery: [] });
+            setFiles({ pitchVideo: null, thumbnail: null, deck: null, gallery: [] });
             setStep(1);
         }
     }, [opportunityToEdit, isOpen]);
@@ -92,12 +97,20 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!formData.industry) {
+            toast.error("Please select an Industry");
+            setStep(1); // Go back to step 1 where industry field is
+            return;
+        }
+
         setLoading(true);
 
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
 
         if (files.pitchVideo) data.append('pitchVideo', files.pitchVideo);
+        if (files.thumbnail) data.append('thumbnail', files.thumbnail);
         if (files.deck) data.append('deck', files.deck);
         if (files.gallery.length > 0) {
             files.gallery.forEach(file => data.append('gallery', file));
@@ -158,16 +171,19 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
             <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Industry</label>
                 <select
-                    className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-blue-500"
+                    className="w-full bg-gray-900 border border-white/10 rounded-xl p-3 text-white focus:border-white/20 transition-all shadow-xl appearance-none cursor-pointer hover:bg-gray-800"
+                    style={{
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)'
+                    }}
                     value={formData.industry}
                     onChange={e => setFormData({ ...formData, industry: e.target.value })}
                 >
-                    <option value="">Select Industry</option>
-                    <option value="Tech">Tech</option>
-                    <option value="Health">Health</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Education">Education</option>
-                    <option value="Retail">Retail</option>
+                    <option value="" className="bg-gray-900 text-white">Select Industry</option>
+                    <option value="Tech" className="bg-gray-900 text-white">Tech</option>
+                    <option value="Health" className="bg-gray-900 text-white">Health</option>
+                    <option value="Finance" className="bg-gray-900 text-white">Finance</option>
+                    <option value="Education" className="bg-gray-900 text-white">Education</option>
+                    <option value="Retail" className="bg-gray-900 text-white">Retail</option>
                 </select>
             </div>
 
@@ -232,15 +248,18 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1">Funding Stage</label>
                     <select
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-blue-500"
+                        className="w-full bg-gray-900 border border-white/10 rounded-xl p-3 text-white focus:border-white/20 transition-all shadow-xl appearance-none cursor-pointer hover:bg-gray-800"
+                        style={{
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)'
+                        }}
                         value={formData.fundingStage}
                         onChange={e => setFormData({ ...formData, fundingStage: e.target.value })}
                     >
-                        <option value="">Select Stage</option>
-                        <option value="Pre-Seed">Pre-Seed</option>
-                        <option value="Seed">Seed</option>
-                        <option value="Series A">Series A</option>
-                        <option value="Series B+">Series B+</option>
+                        <option value="" className="bg-gray-900 text-white">Select Stage</option>
+                        <option value="Pre-Seed" className="bg-gray-900 text-white">Pre-Seed</option>
+                        <option value="Seed" className="bg-gray-900 text-white">Seed</option>
+                        <option value="Series A" className="bg-gray-900 text-white">Series A</option>
+                        <option value="Series B+" className="bg-gray-900 text-white">Series B+</option>
                     </select>
                 </div>
                 <div>
@@ -286,6 +305,39 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
             </div>
 
             <div className="border border-dashed border-white/20 rounded-xl p-6 text-center hover:bg-white/5 transition-colors">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                <label className="block text-sm font-medium text-white mb-1">
+                    Thumbnail Image (16:9)
+                </label>
+
+                {thumbnailPreview ? (
+                    <div className="mt-3">
+                        <img
+                            src={thumbnailPreview}
+                            alt="Thumbnail preview"
+                            className="w-full h-40 object-cover rounded-lg mb-3"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setIsCropperOpen(true)}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                        >
+                            Change Thumbnail
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setIsCropperOpen(true)}
+                        className="mt-3 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                        Upload & Crop Thumbnail
+                    </button>
+                )}
+                <p className="text-xs text-gray-500 mt-2">Click to upload and crop your cover image (1280x720)</p>
+            </div>
+
+            <div className="border border-dashed border-white/20 rounded-xl p-6 text-center hover:bg-white/5 transition-colors">
                 <label className="block text-sm font-medium text-white mb-1">
                     {isInvestor ? 'Brief / Mandate (PDF - Optional)' : 'Pitch Deck (PDF)'}
                 </label>
@@ -297,24 +349,28 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
                 />
             </div>
 
-            {!isInvestor && (
-                <div className="border border-dashed border-white/20 rounded-xl p-6 text-center hover:bg-white/5 transition-colors">
-                    <label className="block text-sm font-medium text-white mb-1">Gallery Images</label>
-                    <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={e => handleFileChange(e, 'gallery')}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-700"
-                    />
-                </div>
-            )}
+
+            <div className="border border-dashed border-white/20 rounded-xl p-6 text-center hover:bg-white/5 transition-colors">
+                <label className="block text-sm font-medium text-white mb-1">
+                    {isInvestor ? 'Reference Images (Optional)' : 'Gallery Images'}
+                </label>
+                <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={e => handleFileChange(e, 'gallery')}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-700"
+                />
+                <p className="text-xs text-gray-500 mt-2">Upload images to showcase your portfolio or references.</p>
+            </div>
         </div>
     );
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-            <div className="bg-[#111] rounded-3xl w-full max-w-2xl border border-white/10 overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/60">
+            <div className="w-full max-w-4xl backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl shadow-2xl overflow-hidden" style={{
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'
+            }}>
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#151515]">
                     <div>
@@ -367,6 +423,18 @@ const CreateOpportunity = ({ isOpen, onClose, onCreated, opportunityToEdit = nul
                     )}
                 </div>
             </div>
+
+            {/* Thumbnail Cropper Modal */}
+            <ThumbnailCropper
+                isOpen={isCropperOpen}
+                onClose={() => setIsCropperOpen(false)}
+                onCropComplete={(croppedFile) => {
+                    setFiles(prev => ({ ...prev, thumbnail: croppedFile }));
+                    // Create preview URL
+                    const previewUrl = URL.createObjectURL(croppedFile);
+                    setThumbnailPreview(previewUrl);
+                }}
+            />
         </div>
     );
 };

@@ -65,7 +65,7 @@ export default function CompleteProfileStartup() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 flex justify-center items-center">
+        <div className="min-h-screen text-white p-6 flex justify-center items-center">
             <div className="max-w-2xl w-full">
                 <div className="text-center mb-10">
                     <Rocket className="w-16 h-16 text-purple-500 mx-auto mb-4" />

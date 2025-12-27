@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, DollarSign, Briefcase, ArrowLeft, Send, Bookmark, FileText, Check, Pencil } from 'lucide-react';
+import { Calendar, DollarSign, Briefcase, ArrowLeft, Send, Bookmark, FileText, Check, Pencil, Download } from 'lucide-react';
 import { API_URL } from '../config';
 import SendInterestModal from '../components/SendInterestModal';
 import CreateOpportunity from '../components/CreateOpportunity';
@@ -73,7 +73,7 @@ const OpportunityDetails = () => {
     const isOwner = currentUserId && creatorUserId && currentUserId.toString() === creatorUserId.toString();
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 md:p-10">
+        <div className="min-h-screen text-white p-6 md:p-10 pt-24" style={{ paddingTop: '6rem' }}>
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => navigate('/opportunities')}
@@ -196,15 +196,26 @@ const OpportunityDetails = () => {
                                 )}
                             </div>
 
+
                             {opportunity.deckUrl && (
-                                <a
-                                    href={opportunity.deckUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    onClick={async (e) => {
+                                        e.preventDefault();
+                                        try {
+                                            toast.loading('Starting download...', { id: 'download' });
+                                            // Use backend endpoint to handle signing and attachment headers
+                                            const downloadUrl = `${API_URL}/api/opportunities/${opportunity._id}/download-deck`;
+                                            window.open(downloadUrl, '_self');
+                                            toast.success('Download started', { id: 'download' });
+                                        } catch (error) {
+                                            console.error('Download failed', error);
+                                            toast.error('Download failed', { id: 'download' });
+                                        }
+                                    }}
                                     className="flex items-center justify-center gap-2 w-full mt-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-medium transition-colors border border-white/10"
                                 >
-                                    <FileText size={18} /> View Pitch Deck (PDF)
-                                </a>
+                                    <Download size={18} /> Download Pitch Deck
+                                </button>
                             )}
                         </div>
 

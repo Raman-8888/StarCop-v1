@@ -1,11 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Box, Circle, Hexagon, Triangle, Layers, Zap, Globe, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HeroScene3D from '../components/3d/HeroScene3D';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxh6VbUelFd_e1HWSpz9K6D7w-il_i39BWdq5oXwy5SUraOhhsNKOKHY4LrIjbmd0ZghA/exec";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.message) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+
+    if (GOOGLE_SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+      toast.error("Contact form is not connected. Please configure the Google Script URL.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Using 'no-cors' mode because Google Apps Script doesn't return CORS headers for simple POSTs
+      // We won't get a readable response, but the data will be sent.
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      // Since we can't read the response in no-cors, we assume success if no network error thrown
+      toast.success("Message sent successfully!");
+      setFormData({ name: '', email: '', message: '' });
+    } catch (error) {
+      console.error("Form error:", error);
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Animation Variants
   const fadeInUp = {
@@ -40,58 +83,85 @@ const Home = () => {
   const heroText = "WE BUILD";
   const heroAccent = "DIGITAL SOUL.";
 
+  const sentenceVariant = {
+    hidden: { opacity: 1 },
+    visible: {
+      opacity: 1,
+      transition: {
+        delay: 0.5,
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
   const letterVariant = {
-    hidden: { opacity: 0, x: -20 },
-    visible: { opacity: 1, x: 0 }
+    hidden: { opacity: 0, y: 0 },
+    visible: { opacity: 1, y: 0 },
   };
 
   return (
     <div className="bg-[#0a0a0a] text-white min-h-screen font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden perspective-1000">
 
       {/* 1. Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center px-6 md:px-20 overflow-hidden pt-20">
+      <section className="relative min-h-screen flex items-center justify-center px-6 md:px-20 overflow-hidden pt-20">
         {/* 3D Background */}
         <HeroScene3D />
 
-        <div className="max-w-7xl w-full z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center pointer-events-none">
+        <div className="w-full z-10 flex flex-col items-start justify-center pointer-events-none px-4">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="space-y-8 pointer-events-auto"
+            className="space-y-4 pointer-events-auto w-full flex flex-col items-start"
           >
-            <h1 className="text-6xl md:text-8xl font-bold leading-tight tracking-tighter">
-              <motion.div className="flex overflow-hidden" variants={staggerContainer}>
+            <div className="flex flex-col items-start justify-center text-left">
+              <motion.h1
+                className="font-black tracking-tighter text-white whitespace-nowrap"
+                style={{ fontSize: '6vw', lineHeight: 0.9 }}
+                variants={sentenceVariant}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+              >
                 {heroText.split("").map((char, index) => (
-                  <motion.span key={index} variants={letterVariant} className="inline-block">
+                  <motion.span key={index} variants={letterVariant}>
                     {char === " " ? "\u00A0" : char}
                   </motion.span>
                 ))}
-              </motion.div>
+              </motion.h1>
 
-              <motion.div className="flex overflow-hidden text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500" variants={staggerContainer}>
+              <motion.h1
+                className="font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#b084ff] to-[#6d6aff] whitespace-nowrap"
+                style={{ fontSize: '6vw', lineHeight: 0.9 }}
+                variants={sentenceVariant}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+              >
                 {heroAccent.split("").map((char, index) => (
-                  <motion.span key={index} variants={letterVariant} className="inline-block">
+                  <motion.span key={index} variants={letterVariant}>
                     {char === " " ? "\u00A0" : char}
                   </motion.span>
                 ))}
-              </motion.div>
-            </h1>
+              </motion.h1>
+            </div>
 
-            <motion.p variants={fadeInUp} className="text-xl text-gray-400 max-w-lg leading-relaxed font-light">
+            <motion.p variants={fadeInUp} className="text-xl md:text-2xl text-gray-400 max-w-2xl text-left leading-relaxed font-light pt-8">
               We bridge the gap between Startups and Investors. A premium network designed for the bold, the visionary, and the relentless.
             </motion.p>
-            <motion.div variants={fadeInUp} className="flex gap-6">
-              <button
-                onClick={() => navigate('/signup')}
-                className="px-8 py-4 bg-white text-black font-bold text-lg rounded-full hover:bg-gray-200 transition-all flex items-center gap-2 group"
-              >
-                Get Started <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-              </button>
+            <motion.div variants={fadeInUp} className="flex gap-6 pt-6">
+              {!user && (
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="px-12 py-6 bg-white text-black font-bold text-xl rounded-full hover:bg-gray-200 transition-all flex items-center gap-3 group"
+                >
+                  Get Started <ArrowRight className="group-hover:translate-x-1 transition-transform w-6 h-6" />
+                </button>
+              )}
               <button
                 onClick={() => navigate('/opportunities')}
-                className="px-8 py-4 border border-white/20 text-white font-bold text-lg rounded-full hover:bg-white/5 transition-all"
+                className="px-12 py-6 border border-white/20 text-white font-bold text-xl rounded-full hover:bg-white/5 hover:border-white/40 transition-all"
               >
                 Explore
               </button>
@@ -99,7 +169,6 @@ const Home = () => {
           </motion.div>
 
           {/* Abstract Visual Removed in favor of full 3D Background */}
-          <div className="hidden md:block"></div>
         </div>
       </section>
 
@@ -229,8 +298,8 @@ const Home = () => {
               Have a groundbreaking idea? Or looking to invest in the next big thing?
               Drop us a line.
             </p>
-            <a href="mailto:hello@startup.connect" className="text-2xl font-bold border-b border-white pb-1 inline-block hover:text-purple-400 hover:border-purple-400 transition-colors">
-              hello@startup.connect
+            <a href="mailto:copstar902@gmail.com" className="text-2xl font-bold border-b border-white pb-1 inline-block hover:text-purple-400 hover:border-purple-400 transition-colors">
+              copstar902@gmail.com
             </a>
           </motion.div>
 
@@ -239,21 +308,44 @@ const Home = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             className="space-y-6"
+            onSubmit={handleSubmit}
           >
             <div>
               <label className="block text-sm font-bold mb-2 uppercase tracking-wide text-gray-500">Name</label>
-              <input type="text" className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors" placeholder="Jane Doe" />
+              <input
+                type="text"
+                className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="Jane Doe"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 uppercase tracking-wide text-gray-500">Email</label>
-              <input type="email" className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors" placeholder="jane@example.com" />
+              <input
+                type="email"
+                className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="jane@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 uppercase tracking-wide text-gray-500">Message</label>
-              <textarea rows="4" className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors" placeholder="Tell us about your vision..."></textarea>
+              <textarea
+                rows="4"
+                className="w-full bg-transparent border-b border-white/20 py-3 text-xl focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="Tell us about your vision..."
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              ></textarea>
             </div>
-            <button className="px-10 py-4 bg-white text-black font-bold text-lg rounded-full hover:bg-purple-500 hover:text-white transition-colors mt-4">
-              Send Message
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-10 py-4 bg-white text-black font-bold text-lg rounded-full hover:bg-purple-500 hover:text-white transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Sending..." : "Send Message"}
             </button>
           </motion.form>
         </div>

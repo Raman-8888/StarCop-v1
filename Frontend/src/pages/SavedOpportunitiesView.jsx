@@ -31,7 +31,7 @@ const SavedOpportunitiesView = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 md:p-10">
+        <div className="min-h-screen text-white p-6 md:p-10 pt-24" style={{ paddingTop: '6rem' }}>
             <div className="max-w-7xl mx-auto space-y-8">
                 <button
                     onClick={() => navigate('/opportunities')}

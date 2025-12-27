@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, X, Share2, MoreHorizontal } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Heart, MessageCircle, Send, X, Share2, MoreHorizontal, Pin, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import axios from 'axios';
@@ -7,11 +8,19 @@ import toast from 'react-hot-toast';
 
 const PostDetailModal = ({ post, isOpen, onClose, onUpdate }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [comment, setComment] = useState('');
     const [isLiked, setIsLiked] = useState(post?.likes.includes(user?._id) || false);
     const [likesCount, setLikesCount] = useState(post?.likes.length || 0);
     const [comments, setComments] = useState(post?.comments || []);
     const [loadingComment, setLoadingComment] = useState(false);
+
+    // Sync comments when post updates
+    React.useEffect(() => {
+        if (post?.comments) {
+            setComments(post.comments);
+        }
+    }, [post]);
 
     if (!isOpen || !post) return null;
 
@@ -35,6 +44,35 @@ const PostDetailModal = ({ post, isOpen, onClose, onUpdate }) => {
         } catch (error) {
             console.error("Like failed", error);
             toast.error("Failed to like post");
+        }
+    };
+
+    const handleCommentLike = async (commentId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/api/posts/${post._id}/comments/${commentId}/like`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setComments(res.data.comments);
+            if (onUpdate) onUpdate({ ...post, comments: res.data.comments });
+        } catch (error) {
+            console.error("Comment like failed", error);
+            toast.error("Failed to like comment");
+        }
+    };
+
+    const handleCommentPin = async (commentId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/api/posts/${post._id}/comments/${commentId}/pin`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setComments(res.data.comments);
+            if (onUpdate) onUpdate({ ...post, comments: res.data.comments });
+            toast.success("Pin updated");
+        } catch (error) {
+            console.error("Comment pin failed", error);
+            toast.error("Failed to pin comment");
         }
     };
 
@@ -128,26 +166,91 @@ const PostDetailModal = ({ post, isOpen, onClose, onUpdate }) => {
                         )}
 
                         {comments.length > 0 ? (
-                            comments.map((c, i) => (
-                                <div key={i} className="flex gap-3 items-start">
-                                    {/* Add commenter avatar if available in schema, else generic */}
-                                    <div className="w-8 h-8 rounded-full bg-gray-800 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/5">
-                                        {/* Ideally we'd populate comments.user */}
-                                        ?
+                            [...comments]
+                                .sort((a, b) => {
+                                    // 1. Pinned first
+                                    if (a.isPinned && !b.isPinned) return -1;
+                                    if (!a.isPinned && b.isPinned) return 1;
+                                    // 2. Most liked
+                                    const aLikes = a.likes ? a.likes.length : 0;
+                                    const bLikes = b.likes ? b.likes.length : 0;
+                                    if (bLikes !== aLikes) return bLikes - aLikes;
+                                    // 3. Newest
+                                    return new Date(b.createdAt) - new Date(a.createdAt);
+                                })
+                                .map((c, i) => (
+                                    <div key={i} className={`flex gap-3 items-start group relative ${c.isPinned ? 'bg-white/5 p-2 rounded-lg' : ''}`}>
+                                        <div
+                                            className="w-8 h-8 rounded-full bg-gray-800 flex-shrink-0 overflow-hidden border border-white/5 cursor-pointer hover:border-purple-500 transition-colors"
+                                            onClick={() => {
+                                                if (c.username) {
+                                                    onClose();
+                                                    navigate(`/user/${c.username}`);
+                                                }
+                                            }}
+                                        >
+                                            {c.profilePicture ? (
+                                                <img
+                                                    src={c.profilePicture}
+                                                    alt={c.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-400">
+                                                    {c.name ? c.name[0] : '?'}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="font-bold text-white text-sm cursor-pointer hover:text-purple-400 transition-colors"
+                                                    onClick={() => {
+                                                        if (c.username) {
+                                                            onClose();
+                                                            navigate(`/user/${c.username}`);
+                                                        }
+                                                    }}
+                                                >
+                                                    {c.name || 'User'}
+                                                </span>
+                                                {c.isPinned && (
+                                                    <Pin size={12} className="text-purple-500 fill-purple-500" />
+                                                )}
+                                            </div>
+
+                                            <p className="text-sm text-gray-300 mt-0.5">{c.text}</p>
+
+                                            <div className="flex items-center gap-4 mt-2">
+                                                <button
+                                                    onClick={() => handleCommentLike(c._id)}
+                                                    className={`flex items-center gap-1 text-xs ${c.likes?.includes(user?._id) ? 'text-red-500' : 'text-gray-500 hover:text-gray-300'}`}
+                                                >
+                                                    <Heart size={12} className={c.likes?.includes(user?._id) ? 'fill-current' : ''} />
+                                                    <span>{c.likes?.length || 0}</span>
+                                                </button>
+
+                                                {/* Pin Button (Only for post owner) */}
+                                                {user?._id === post.user._id && (
+                                                    <button
+                                                        onClick={() => handleCommentPin(c._id)}
+                                                        className={`opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 ${c.isPinned ? 'text-purple-500' : 'text-gray-500 hover:text-white'}`}
+                                                        title={c.isPinned ? "Unpin comment" : "Pin comment"}
+                                                    >
+                                                        <Pin size={12} className={c.isPinned ? 'fill-current' : ''} />
+                                                        {c.isPinned ? 'Pinned' : 'Pin'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm">
-                                            <span className="font-bold text-white mr-2">User</span> {/* Placeholder name until populated */}
-                                            <span className="text-gray-300">{c.text}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            ))
+                                ))
                         ) : (
                             <div className="text-center text-gray-500 py-10">
                                 No comments yet. Be the first!
                             </div>
-                        )}
+                        )
+                        }
                     </div>
 
                     {/* Actions */}

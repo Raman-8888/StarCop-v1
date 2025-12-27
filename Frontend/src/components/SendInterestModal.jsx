@@ -6,10 +6,40 @@ import { API_URL } from '../config';
 
 const SendInterestModal = ({ isOpen, onClose, opportunityId, onSuccess }) => {
     const [message, setMessage] = useState('');
-    const [video, setVideo] = useState(null);
+    const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
+
+    const handleFileChange = (e) => {
+        const selectedFiles = Array.from(e.target.files);
+        const validFiles = [];
+
+        for (const file of selectedFiles) {
+            // Check file size (50MB max)
+            if (file.size > 50 * 1024 * 1024) {
+                toast.error(`${file.name} is too large. Max size is 50MB.`);
+                continue;
+            }
+
+            // Check file type
+            const validTypes = ['video/', 'image/', 'application/pdf'];
+            const isValid = validTypes.some(type => file.type.startsWith(type) || file.type === 'application/pdf');
+
+            if (!isValid) {
+                toast.error(`${file.name} is not a supported file type. Please upload video, image, or PDF files.`);
+                continue;
+            }
+
+            validFiles.push(file);
+        }
+
+        setFiles(prev => [...prev, ...validFiles]);
+    };
+
+    const removeFile = (index) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,34 +47,14 @@ const SendInterestModal = ({ isOpen, onClose, opportunityId, onSuccess }) => {
 
         try {
             const token = localStorage.getItem('token');
-            let requestVideoUrl = '';
-
-            // 1. Upload Video if present
-            if (video) {
-                const formData = new FormData();
-                formData.append('file', video);
-                formData.append('upload_preset', 'ml_default'); // Assuming unsigned or handle via backend signature if needed. 
-                // Wait, previous implementation in createOpportunity used backend logic? 
-                // Ah, previous CreateOpportunity sent file to backend via Multer.
-                // We should do the same here. BUT sendInterest endpoint currently only accepts JSON body with 'message'.
-                // I need to update sendInterest endpoint to handle file upload OR use the same helper?
-                // Actually, opportunity.routes.js sendInterest is likely just a POST with JSON.
-                // Checking opportunity.routes.js ... (I didn't explicitly modify it to add upload middleware for sendInterest).
-                // I need to fix backend route for sendInterest to accept files! or implement client-side upload.
-                // Given the backend pattern usually is "Backend handles upload", let's assume I need to update backend route too.
-                // But specifically for this Modal, let's look at how CreateOpportunity did it.
-                // It sent FormData to /api/opportunities.
-                // So sendInterest needs to be updated to handle Form Data.
-            }
-
-            // Wait, I can't easily change the backend *right now* inside this write_to_filethought flow without a separate step.
-            // AND I missed updating the route for interest to use multer.
-            // Let's implement this Modal to send JSON for now, and I will fix the backend in next step.
-            // Actually, I can use the same pattern: Client sends FormData, Backend uses Multer + Cloudinary.
-
             const formData = new FormData();
+
             formData.append('message', message);
-            if (video) formData.append('requestVideo', video);
+
+            // Append all files as 'attachments'
+            files.forEach(file => {
+                formData.append('attachments', file);
+            });
 
             await axios.post(`${API_URL}/api/opportunities/${opportunityId}/interest`, formData, {
                 headers: {
@@ -55,6 +65,8 @@ const SendInterestModal = ({ isOpen, onClose, opportunityId, onSuccess }) => {
 
             onSuccess();
             onClose();
+            setMessage('');
+            setFiles([]);
             toast.success('Interest sent successfully!');
         } catch (error) {
             console.error("Failed to send interest", error);
@@ -95,27 +107,42 @@ const SendInterestModal = ({ isOpen, onClose, opportunityId, onSuccess }) => {
                     <div className="border border-dashed border-white/20 rounded-xl p-4 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
                         <input
                             type="file"
-                            accept="video/*"
+                            accept="video/*,image/*,application/pdf"
+                            multiple
                             className="absolute inset-0 opacity-0 cursor-pointer"
-                            onChange={e => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                    if (file.size > 50 * 1024 * 1024) { // 50MB
-                                        toast.error(`File ${file.name} is too large. Max size is 50MB.`);
-                                        e.target.value = null; // Reset
-                                        return;
-                                    }
-                                    setVideo(file);
-                                }
-                            }}
+                            onChange={handleFileChange}
                         />
                         <div className="flex flex-col items-center gap-2">
                             <Upload className="text-blue-500" size={24} />
                             <span className="text-sm text-gray-400">
-                                {video ? video.name : "Attach a video pitch (Max 50MB)"}
+                                Attach files (video, images, PDF) - Max 50MB each
                             </span>
                         </div>
                     </div>
+
+                    {/* File Preview */}
+                    {files.length > 0 && (
+                        <div className="space-y-2">
+                            {files.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between bg-black/40 border border-white/10 rounded-lg p-2">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <Check className="text-green-500 flex-shrink-0" size={16} />
+                                        <span className="text-sm text-white truncate">{file.name}</span>
+                                        <span className="text-xs text-gray-500 flex-shrink-0">
+                                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeFile(index)}
+                                        className="text-red-400 hover:text-red-300 p-1 flex-shrink-0"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <button
                         type="submit"

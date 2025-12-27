@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useNavigate } from 'react-router-dom';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 dayjs.extend(relativeTime);
 
@@ -56,8 +57,13 @@ const Notifications = () => {
         }
     };
 
-    const handleClearAll = async () => {
-        if (!window.confirm("Are you sure you want to clear all notifications?")) return;
+    const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+
+    const handleClearAll = () => {
+        setIsClearModalOpen(true);
+    };
+
+    const confirmClearAll = async () => {
         try {
             const token = localStorage.getItem('token');
             await axios.delete(`${API_URL}/api/notifications`, {
@@ -71,7 +77,7 @@ const Notifications = () => {
         }
     };
 
-    const handleReply = async (senderId) => {
+    const handleReply = async (senderId, senderUsername) => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.post(`${API_URL}/api/chat/conversations`,
@@ -82,7 +88,15 @@ const Notifications = () => {
             navigate('/chat', { state: { selectedConversation: res.data } });
         } catch (error) {
             console.error("Failed to start chat", error);
-            toast.error("Failed to open chat");
+            // If 403 (Not connected) or other error, redirect to profile
+            if (error.response && (error.response.status === 403 || error.response.status === 400 || error.response.status === 404)) {
+                toast.error("Connect with user to start chatting");
+                if (senderUsername) {
+                    navigate(`/user/${senderUsername}`);
+                }
+            } else {
+                toast.error("Failed to open chat");
+            }
         }
     };
 
@@ -103,9 +117,9 @@ const Notifications = () => {
     if (loading) return <div className="text-white p-10 flex justify-center">Loading...</div>;
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 md:p-10">
+        <div className="min-h-screen bg-black text-white p-6 md:p-10 md:pt-24 pt-4">
             <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
                             <Bell className="text-blue-400" size={24} />
@@ -119,7 +133,7 @@ const Notifications = () => {
                     {notifications.length > 0 && (
                         <button
                             onClick={handleClearAll}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors text-sm font-medium"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors text-sm font-medium"
                         >
                             <Trash2 size={16} /> Clear History
                         </button>
@@ -188,7 +202,7 @@ const Notifications = () => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleReply(notification.sender._id);
+                                                        handleReply(notification.sender._id, notification.sender.username);
                                                     }}
                                                     className="px-4 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30 rounded-lg text-sm transition-colors flex items-center gap-2"
                                                 >
@@ -216,7 +230,18 @@ const Notifications = () => {
                     )}
                 </div>
             </div>
-        </div>
+
+
+            <ConfirmationModal
+                isOpen={isClearModalOpen}
+                onClose={() => setIsClearModalOpen(false)}
+                onConfirm={confirmClearAll}
+                title="Clear All Notifications"
+                message="Are you sure you want to clear all notifications? This action cannot be undone."
+                confirmText="Clear All"
+                isDestructive={true}
+            />
+        </div >
     );
 };
 

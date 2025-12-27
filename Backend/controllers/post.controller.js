@@ -13,7 +13,13 @@ exports.createPost = async (req, res) => {
         if (req.file) {
             const result = await uploadToCloudinary(req.file.buffer);
             mediaUrl = result.secure_url;
-            mediaType = 'image'; // Assuming image for now, can be extended
+            // Map 'video' to 'video', everything else to 'image' (default)
+            // Cloudinary returns 'image', 'video', or 'raw'
+            if (result.resource_type === 'video') {
+                mediaType = 'video';
+            } else {
+                mediaType = 'image';
+            }
         } else if (req.body.mediaUrl) {
             // Fallback if mediaUrl is sent directly (though we prefer file upload)
             mediaUrl = req.body.mediaUrl;
@@ -110,8 +116,9 @@ exports.addComment = async (req, res) => {
         const newComment = {
             user: req.user._id,
             text,
-            name: req.user.name,
-            profilePicture: req.user.profilePicture
+            name: req.user.name || "Unknown User",
+            username: req.user.username,
+            profilePicture: req.user.profilePicture || ""
         };
 
         post.comments.unshift(newComment);
@@ -143,6 +150,93 @@ exports.addComment = async (req, res) => {
         }
 
         res.json(post);
+    } catch (error) {
+        console.error("Add Comment Error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete Post
+exports.deletePost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Check ownership
+        if (post.user.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'User not authorized' });
+        }
+
+        // Future TODO: Remove media from Cloudinary
+
+        await post.deleteOne();
+
+        res.json({ message: 'Post removed' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// Toggle Comment Like
+exports.toggleCommentLike = async (req, res) => {
+    try {
+        const { id, commentId } = req.params;
+        const userId = req.user._id;
+
+        const post = await Post.findById(id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        const comment = post.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        if (comment.likes.includes(userId)) {
+            // Unlike
+            comment.likes = comment.likes.filter(id => id.toString() !== userId.toString());
+        } else {
+            // Like
+            comment.likes.push(userId);
+        }
+
+        await post.save();
+        res.json(post);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Toggle Comment Pin
+exports.toggleCommentPin = async (req, res) => {
+    try {
+        const { id, commentId } = req.params;
+        const userId = req.user._id;
+
+        const post = await Post.findById(id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        // Check if user is the post owner
+        if (post.user.toString() !== userId.toString()) {
+            return res.status(401).json({ message: "Only post owner can pin comments" });
+        }
+
+        const comment = post.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        // Toggle pin status
+        comment.isPinned = !comment.isPinned;
+
+        // Optional: If you only want ONE pinned comment, unpin others
+        if (comment.isPinned) {
+            post.comments.forEach(c => {
+                if (c._id.toString() !== commentId) c.isPinned = false;
+            });
+        }
+
+        await post.save();
+        res.json(post);
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -85,24 +85,28 @@ const CreatePost = ({ onPostCreated }) => {
 
                     {previewUrl && (
                         <div className="relative rounded-lg overflow-hidden bg-black/50 max-h-64 inline-block">
-                            <img src={previewUrl} alt="Preview" className="max-h-64 object-contain" />
+                            {file?.type?.startsWith('video/') ? (
+                                <video src={previewUrl} controls className="max-h-64 object-contain" />
+                            ) : (
+                                <img src={previewUrl} alt="Preview" className="max-h-64 object-contain" />
+                            )}
                             <button
                                 type="button"
                                 onClick={clearFile}
-                                className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80 transition-colors"
+                                className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80 transition-colors z-10"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between md:justify-start gap-4 pt-2 border-t border-white/5">
                         <label className="cursor-pointer flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 px-4 py-2 rounded-lg">
                             <Image className="w-5 h-5" />
-                            <span className="text-sm font-medium">Add Photo</span>
+                            <span className="text-sm font-medium">Add Photo/Video</span>
                             <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 onChange={handleFileChange}
                                 className="hidden"
                             />

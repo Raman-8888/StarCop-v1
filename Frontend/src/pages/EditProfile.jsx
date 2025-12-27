@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Camera, Save, X } from 'lucide-react';
 import { API_URL } from '../config';
+import ProfilePictureCropper from '../components/ProfilePictureCropper';
 
 export default function EditProfile() {
     const { user, login } = useAuth();
@@ -11,6 +12,7 @@ export default function EditProfile() {
     const [loading, setLoading] = useState(false);
     const [imagePreview, setImagePreview] = useState(user?.profilePicture || '');
     const [file, setFile] = useState(null);
+    const [isCropperOpen, setIsCropperOpen] = useState(false);
 
     // Basic fields
     const [formData, setFormData] = useState({
@@ -30,14 +32,6 @@ export default function EditProfile() {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            setImagePreview(URL.createObjectURL(selectedFile));
-        }
     };
 
     const handleSubmit = async (e) => {
@@ -87,7 +81,7 @@ export default function EditProfile() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+        <div className="min-h-screen text-white flex items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-gray-900 rounded-2xl border border-white/10 overflow-hidden">
                 <div className="p-6 border-b border-white/10 flex items-center justify-between">
                     <h2 className="text-xl font-bold">Edit Profile</h2>
@@ -99,7 +93,7 @@ export default function EditProfile() {
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     {/* Profile Picture */}
                     <div className="flex flex-col items-center gap-4">
-                        <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-purple-500 bg-gray-800 relative group">
+                        <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-purple-500 bg-gray-800">
                             {imagePreview ? (
                                 <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
@@ -107,20 +101,15 @@ export default function EditProfile() {
                                     <Camera className="w-8 h-8" />
                                 </div>
                             )}
-                            <label className="absolute inset-0 flex items-center justify-center cursor-pointer">
-                                <span className="sr-only">Choose profile photo</span>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                />
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Camera className="w-8 h-8 text-white" />
-                                </div>
-                            </label>
                         </div>
-                        <p className="text-gray-400 text-sm">Click to upload new picture</p>
+                        <button
+                            type="button"
+                            onClick={() => setIsCropperOpen(true)}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
+                        >
+                            <Camera className="w-4 h-4" />
+                            {imagePreview ? 'Change Photo' : 'Upload Photo'}
+                        </button>
                     </div>
 
                     <div className="space-y-4">
@@ -187,6 +176,17 @@ export default function EditProfile() {
                     </div>
                 </form>
             </div>
+
+            {/* Profile Picture Cropper Modal */}
+            <ProfilePictureCropper
+                isOpen={isCropperOpen}
+                onClose={() => setIsCropperOpen(false)}
+                currentImage={imagePreview}
+                onCropComplete={(croppedFile, previewUrl) => {
+                    setFile(croppedFile);
+                    setImagePreview(previewUrl);
+                }}
+            />
         </div>
     );
 }

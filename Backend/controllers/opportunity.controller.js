@@ -3,6 +3,7 @@ const InvestorInterest = require('../models/investorInterest.model');
 const SavedOpportunity = require('../models/savedOpportunity.model');
 const User = require('../models/usermodel');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const { uploadToSupabase } = require('../utils/supabase');
 
 // --- Startup Controllers ---
 
@@ -39,6 +40,7 @@ exports.createOpportunity = async (req, res) => {
         // Handle File Uploads (Cloudinary)
         let pitchVideoUrl = '';
         let deckUrl = '';
+        let thumbnailUrl = '';
         let galleryUrls = [];
 
         if (req.files) {
@@ -47,9 +49,15 @@ exports.createOpportunity = async (req, res) => {
                     const result = await uploadToCloudinary(req.files.pitchVideo[0].buffer);
                     pitchVideoUrl = result.secure_url;
                 }
+                if (req.files.thumbnail && req.files.thumbnail[0]) {
+                    const result = await uploadToCloudinary(req.files.thumbnail[0].buffer);
+                    thumbnailUrl = result.secure_url;
+                }
                 if (req.files.deck && req.files.deck[0]) {
-                    const result = await uploadToCloudinary(req.files.deck[0].buffer);
-                    deckUrl = result.secure_url;
+                    // Use Supabase for PDF
+                    const file = req.files.deck[0];
+                    const publicUrl = await uploadToSupabase(file.buffer, file.originalname, file.mimetype);
+                    deckUrl = publicUrl;
                 }
                 if (req.files.gallery) {
                     for (const file of req.files.gallery) {
@@ -58,8 +66,8 @@ exports.createOpportunity = async (req, res) => {
                     }
                 }
             } catch (uploadError) {
-                console.error("Cloudinary Upload Error:", uploadError);
-                return res.status(500).json({ message: "File upload failed. Check server configuration." });
+                console.error("File Upload Error:", uploadError);
+                return res.status(500).json({ message: `File upload failed: ${uploadError.message}` });
             }
         }
 
@@ -85,6 +93,7 @@ exports.createOpportunity = async (req, res) => {
             fundingStage,
             investmentRange,
             pitchVideoUrl,
+            thumbnailUrl,
             deckUrl,
             galleryUrls,
             tags: parsedTags,
@@ -92,6 +101,38 @@ exports.createOpportunity = async (req, res) => {
         });
 
         await newOpportunity.save();
+
+        // --- Notification to Followers ---
+        const Notification = require('../models/notification.model');
+        // Fetch user again to get followers if not populated, or just query
+        const creatorWithFollowers = await User.findById(userId).populate('followers');
+
+        if (creatorWithFollowers && creatorWithFollowers.followers.length > 0) {
+            const notifMessage = `${user.name || 'A startup'} posted a new opportunity: ${title}`;
+
+            // Create notifications in parallel
+            const notifPromises = creatorWithFollowers.followers
+                .filter(follower => follower._id.toString() !== userId.toString())
+                .map(async (follower) => {
+                    await Notification.create({
+                        recipient: follower._id,
+                        sender: userId,
+                        type: 'opportunity',
+                        message: notifMessage,
+                        relatedId: newOpportunity._id
+                    });
+                    if (req.io) {
+                        req.io.to(follower._id.toString()).emit('notification', {
+                            message: notifMessage,
+                            type: 'opportunity',
+                            relatedId: newOpportunity._id
+                        });
+                    }
+                });
+            await Promise.all(notifPromises);
+        }
+        // ---------------------------------
+
         res.status(201).json(newOpportunity);
     } catch (error) {
         console.error("Create Opportunity Error:", error);
@@ -155,9 +196,14 @@ exports.updateOpportunity = async (req, res) => {
                 const result = await uploadToCloudinary(req.files.pitchVideo[0].buffer);
                 opportunity.pitchVideoUrl = result.secure_url;
             }
+            if (req.files.thumbnail && req.files.thumbnail[0]) {
+                const result = await uploadToCloudinary(req.files.thumbnail[0].buffer);
+                opportunity.thumbnailUrl = result.secure_url;
+            }
             if (req.files.deck && req.files.deck[0]) {
-                const result = await uploadToCloudinary(req.files.deck[0].buffer);
-                opportunity.deckUrl = result.secure_url;
+                const file = req.files.deck[0];
+                const publicUrl = await uploadToSupabase(file.buffer, file.originalname, file.mimetype);
+                opportunity.deckUrl = publicUrl;
             }
             if (req.files.gallery) {
                 // For gallery, currently replacing all. Could be additive in future.
@@ -248,7 +294,57 @@ exports.updateInterestStatus = async (req, res) => {
         if (status === 'accepted') {
             const Notification = require('../models/notification.model');
             const User = require('../models/usermodel');
-            const sender = await User.findById(req.user._id); // The one accepting (Startup)
+            const Connection = require('../models/connection.model');
+            const Conversation = require('../models/conversation.model');
+
+            const sender = await User.findById(interest.sender);
+            const recipient = await User.findById(req.user._id);
+
+            // Determine who is startup and who is investor
+            let startupId, investorId;
+            if (recipient.accountType === 'startup') {
+                startupId = recipient._id;
+                investorId = sender._id;
+            } else {
+                startupId = sender._id;
+                investorId = recipient._id;
+            }
+
+            // Create Connection
+            let connection;
+            try {
+                connection = await Connection.create({
+                    startupId,
+                    investorId,
+                    createdFromRequestId: interest._id,
+                    status: 'active'
+                });
+
+                console.log('Connection created:', connection._id);
+            } catch (connError) {
+                // Connection might already exist
+                if (connError.code === 11000) {
+                    connection = await Connection.findOne({ startupId, investorId });
+                    console.log('Connection already exists:', connection._id);
+                } else {
+                    throw connError;
+                }
+            }
+
+            // Create or Get Conversation
+            let conversation = await Conversation.findOne({ connectionId: connection._id });
+
+            if (!conversation) {
+                conversation = await Conversation.create({
+                    connectionId: connection._id,
+                    participants: [startupId, investorId],
+                    unreadCounts: {
+                        [startupId.toString()]: 0,
+                        [investorId.toString()]: 0
+                    }
+                });
+                console.log('Conversation created:', conversation._id);
+            }
 
             const notifMessage = `Your interest in "${interest.opportunity.title || 'opportunity'}" has been accepted!`;
 
@@ -257,13 +353,48 @@ exports.updateInterestStatus = async (req, res) => {
                 sender: req.user._id,
                 type: 'match',
                 message: notifMessage,
-                relatedId: interest.opportunity._id // Or interest._id
+                relatedId: interest.opportunity._id
+            });
+
+            // Emit socket events to both users
+            if (req.io) {
+                // Notify sender (investor/interested party)
+                req.io.to(interest.sender.toString()).emit('notification', {
+                    message: notifMessage,
+                    type: 'match'
+                });
+
+                // Emit connection_approved event to both users
+                req.io.to(interest.sender.toString()).emit('connection_approved', {
+                    connectionId: connection._id,
+                    conversationId: conversation._id,
+                    otherUser: recipient
+                });
+
+                req.io.to(req.user._id.toString()).emit('connection_approved', {
+                    connectionId: connection._id,
+                    conversationId: conversation._id,
+                    otherUser: sender
+                });
+            }
+        }
+        // Notify if Rejected
+        else if (status === 'rejected') {
+            const Notification = require('../models/notification.model');
+            const notifMessage = `Your interest in "${interest.opportunity.title || 'opportunity'}" was not selected.`;
+
+            await Notification.create({
+                recipient: interest.sender,
+                sender: req.user._id,
+                type: 'info',
+                message: notifMessage,
+                relatedId: interest.opportunity._id
             });
 
             if (req.io) {
                 req.io.to(interest.sender.toString()).emit('notification', {
                     message: notifMessage,
-                    type: 'match'
+                    type: 'info'
                 });
             }
         }
@@ -279,7 +410,7 @@ exports.getSentInterests = async (req, res) => {
     try {
         const interests = await InvestorInterest.find({ sender: req.user._id })
             .populate('recipient', 'name profilePicture accountType email')
-            .populate('opportunity', 'title industry')
+            .populate('opportunity', 'title industry creatorId')
             .sort({ createdAt: -1 });
         res.status(200).json(interests);
     } catch (error) {
@@ -358,12 +489,53 @@ exports.sendInterest = async (req, res) => {
             return res.status(400).json({ message: "Interest already sent" });
         }
 
-        // Handle Video Upload
-        let requestVideoUrl = '';
-        if (req.files && req.files.requestVideo && req.files.requestVideo[0]) {
+        // Handle File Attachments (video, pdf, images)
+        let requestVideoUrl = ''; // Keep for backward compatibility
+        const attachments = [];
+
+        if (req.files) {
+            const { uploadToSupabase } = require('../utils/supabase');
             const { uploadToCloudinary } = require('../utils/cloudinary');
-            const result = await uploadToCloudinary(req.files.requestVideo[0].buffer);
-            requestVideoUrl = result.secure_url;
+
+            // Handle legacy requestVideo field
+            if (req.files.requestVideo && req.files.requestVideo[0]) {
+                const result = await uploadToCloudinary(req.files.requestVideo[0].buffer);
+                requestVideoUrl = result.secure_url;
+            }
+
+            // Handle new attachments field (supports multiple files)
+            if (req.files.attachments) {
+                for (const file of req.files.attachments) {
+                    try {
+                        // Upload to Supabase
+                        const fileUrl = await uploadToSupabase(
+                            file.buffer,
+                            file.originalname,
+                            file.mimetype,
+                            'interest-attachments'
+                        );
+
+                        // Determine file type
+                        let fileType = 'document';
+                        if (file.mimetype.startsWith('image/')) fileType = 'image';
+                        else if (file.mimetype.startsWith('video/')) fileType = 'video';
+                        else if (file.mimetype === 'application/pdf') fileType = 'pdf';
+
+                        attachments.push({
+                            type: fileType,
+                            url: fileUrl,
+                            filename: file.originalname,
+                            size: file.size,
+                            mimeType: file.mimetype
+                        });
+                    } catch (uploadError) {
+                        console.error('File upload error:', uploadError);
+                        return res.status(500).json({
+                            message: `Failed to upload ${file.originalname}`
+                        });
+                    }
+                }
+            }
         }
 
         const newInterest = new InvestorInterest({
@@ -371,7 +543,8 @@ exports.sendInterest = async (req, res) => {
             recipient: opportunity.creatorId,
             opportunity: opportunityId,
             message,
-            requestVideoUrl
+            requestVideoUrl,
+            attachments
         });
 
         await newInterest.save();
@@ -405,7 +578,7 @@ exports.sendInterest = async (req, res) => {
         if (req.io) {
             console.log(`DEBUG: Emitting notification to room ${opportunity.creatorId.toString()}`);
             req.io.to(opportunity.creatorId.toString()).emit('notification', {
-                message: `New interest from ${sender.name}`,
+                message: `New interest from ${sender.name}: "${message ? message.substring(0, 20) + '...' : 'Check it out'}"`,
                 type: 'interest'
             });
         } else {
@@ -461,5 +634,25 @@ exports.getSavedOpportunities = async (req, res) => {
         res.status(200).json(saved);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+exports.downloadDeck = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const opportunity = await Opportunity.findById(id);
+
+        if (!opportunity || !opportunity.deckUrl) {
+            return res.status(404).send('Deck not found');
+        }
+
+        // Redirect to the stored URL (Google Drive Link)
+        // If it's a webViewLink, it opens in viewer.
+        // If user wants download, they can download from there.
+        return res.redirect(opportunity.deckUrl);
+
+    } catch (error) {
+        console.error("Download Error:", error);
+        res.status(500).send('Server Error');
     }
 };

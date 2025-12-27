@@ -8,19 +8,29 @@ import LiquidChrome from './LiquidChrome';
 
 const AnimatedSphere = () => {
     const meshRef = useRef();
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useFrame((state) => {
         const time = state.clock.getElapsedTime();
-        // Subtle rotation
         if (meshRef.current) {
             meshRef.current.rotation.x = time * 0.2;
             meshRef.current.rotation.y = time * 0.3;
         }
     });
 
+    const scale = isMobile ? 1.5 : 2.4;
+    const position = isMobile ? [1.5, 0, 0] : [0, 0, 0];
+
     return (
         <Float speed={2} rotationIntensity={1} floatIntensity={2}>
-            <Sphere args={[1, 100, 200]} scale={2.4} ref={meshRef}>
+            <Sphere args={[1, 100, 200]} scale={scale} position={position} ref={meshRef}>
                 <MeshDistortMaterial
                     color="#8b5cf6" // Purple-500
                     attach="material"

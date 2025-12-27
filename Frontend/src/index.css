@@ -1,19 +1,64 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Typography Scale - Professional & Consistent */
+  --font-size-xs: 0.75rem;
+  /* 12px - Small labels, captions */
+  --font-size-sm: 0.875rem;
+  /* 14px - Secondary text */
+  --font-size-base: 1rem;
+  /* 16px - Body text */
+  --font-size-lg: 1.125rem;
+  /* 18px - Large body */
+  --font-size-xl: 1.25rem;
+  /* 20px - Small headings */
+  --font-size-2xl: 1.5rem;
+  /* 24px - H3 */
+  --font-size-3xl: 1.875rem;
+  /* 30px - H2 */
+  --font-size-4xl: 2.25rem;
+  /* 36px - H1 */
+  --font-size-5xl: 3rem;
+  /* 48px - Display */
+  --font-size-6xl: 3.75rem;
+  /* 60px - Hero */
+
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+}
+
+/* Base Styles */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #0a0a0a;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-normal);
+  background-color: #000000;
   color: white;
   margin: 0;
   min-height: 100vh;
 }
 
+/* Headings - Consistent Hierarchy */
 h1,
 h2,
 h3,
@@ -21,4 +66,123 @@ h4,
 h5,
 h6 {
   font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-extrabold);
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+}
+
+h5,
+h6 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Paragraph & Text */
+p {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
+/* Small Text */
+small,
+.text-small {
+  font-size: var(--font-size-sm);
+}
+
+/* Labels & Captions */
+label,
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+}
+
+/* Buttons - Consistent Typography */
+button {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+/* Links */
+a {
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+/* Input Fields */
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Dark Mode Select Options */
+select option {
+  background-color: #1a1a1a;
+  color: white;
+  padding: 8px;
+}
+
+/* Responsive Typography overrides */
+@media (max-width: 640px) {
+  html {
+    font-size: 16px;
+    /* Ensure base size is readable */
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 2rem;
+  }
+
+  p {
+    font-size: 1.05rem;
+  }
+
+  /* Slightly larger body text for readability */
+}
+
+/* Hide scrollbar for clean mobile look */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

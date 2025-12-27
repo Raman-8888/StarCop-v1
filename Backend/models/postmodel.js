@@ -32,9 +32,29 @@ const postSchema = new mongoose.Schema({
             type: String,
             required: true
         },
+        name: {
+            type: String,
+            required: false // Changed to false to support legacy comments
+        },
+        profilePicture: {
+            type: String,
+            default: ""
+        },
+        username: {
+            type: String,
+            required: false // Optional for backward compatibility
+        },
         createdAt: {
             type: Date,
             default: Date.now
+        },
+        likes: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }],
+        isPinned: {
+            type: Boolean,
+            default: false
         }
     }]
 }, {

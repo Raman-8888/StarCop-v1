@@ -58,13 +58,7 @@ export default function Login() {
       <LoginScene3D />
 
       {/* Back to Home Button */}
-      <Link
-        to="/"
-        className="absolute top-8 left-8 z-30 text-gray-400 hover:text-white transition-colors flex items-center gap-2"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back to Home</span>
-      </Link>
+
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

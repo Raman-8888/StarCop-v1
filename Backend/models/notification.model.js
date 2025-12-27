@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['interest', 'match', 'system'],
+        enum: ['interest', 'match', 'system', 'follow', 'info', 'opportunity', 'comment', 'like'],
         default: 'interest'
     },
     message: {
@@ -25,6 +25,11 @@ const notificationSchema = new mongoose.Schema({
     relatedId: {
         type: mongoose.Schema.Types.ObjectId, // ID of the Opportunity or Interest
         required: true
+    },
+    onModel: {
+        type: String,
+        required: false,
+        enum: ['Post', 'Opportunity', 'User']
     },
     isRead: {
         type: Boolean,

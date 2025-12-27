@@ -170,3 +170,56 @@ exports.saveFcmToken = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Search Users Global
+exports.searchUsers = async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query) return res.status(400).json({ message: "Search term required" });
+
+        const users = await User.find({
+            $or: [
+                { name: { $regex: query, $options: 'i' } },
+                { username: { $regex: query, $options: 'i' } }
+            ]
+        })
+            .select('name username profilePicture accountType startupDetails.companyName investorDetails.firmName')
+            .limit(10); // Limit results for performance
+
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get list of followers
+exports.getFollowers = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id).populate('followers', 'name username profilePicture accountType startupDetails.companyName investorDetails.firmName');
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json(user.followers);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get list of following
+exports.getFollowing = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id).populate('following', 'name username profilePicture accountType startupDetails.companyName investorDetails.firmName');
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json(user.following);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

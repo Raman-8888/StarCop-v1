@@ -48,6 +48,10 @@ const opportunitySchema = new mongoose.Schema({
         type: String, // Cloudinary URL
         required: false
     },
+    thumbnailUrl: {
+        type: String, // Cloudinary URL for thumbnail image
+        required: false
+    },
     galleryUrls: [{
         type: String // Cloudinary URLs
     }],

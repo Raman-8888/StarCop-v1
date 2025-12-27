@@ -55,9 +55,15 @@ app.use('/api/posts', postRoutes);
 
 const opportunityRoutes = require('./route/opportunity.routes');
 const notificationRoutes = require('./route/notification.routes');
+const connectionRoutes = require('./route/connection.routes');
+const blockRoutes = require('./route/block.routes');
+const messageRequestRoutes = require('./route/messageRequest.routes');
 
 app.use('/api/opportunities', opportunityRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/connections', connectionRoutes);
+app.use('/api/blocks', blockRoutes);
+app.use('/api/message-requests', messageRequestRoutes);
 
 io.on('connection', (socket) => {
   console.log('Socket connected', socket.id);

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Play, Bookmark, Send, Eye, Pencil } from 'lucide-react';
+import { Play, Bookmark, Send, Eye, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { API_URL } from '../config';
 
-const OpportunityCard = ({ opportunity, onSaveToggle, onEdit }) => {
+const OpportunityCard = ({ opportunity, onSaveToggle, onEdit, onDelete, onClick }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [isSaved, setIsSaved] = useState(false);
@@ -33,9 +33,17 @@ const OpportunityCard = ({ opportunity, onSaveToggle, onEdit }) => {
         navigate(`/opportunities/${opportunity._id}`); // Navigate to details to send interest
     };
 
+    const handleCardClick = () => {
+        if (onClick) {
+            onClick(opportunity);
+        } else {
+            navigate(`/opportunities/${opportunity._id}`);
+        }
+    };
+
     return (
         <div
-            onClick={() => navigate(`/opportunities/${opportunity._id}`)}
+            onClick={handleCardClick}
             className={`group backdrop-blur-md bg-white/5 border rounded-2xl overflow-hidden hover:bg-white/10 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300 cursor-pointer relative ${isOwner
                 ? 'border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                 : 'border-white/10 hover:border-white/20'
@@ -43,7 +51,13 @@ const OpportunityCard = ({ opportunity, onSaveToggle, onEdit }) => {
         >
             {/* Thumbnail / Video Preview Area */}
             <div className="aspect-video bg-black/50 relative overflow-hidden">
-                {opportunity.pitchVideoUrl ? (
+                {opportunity.thumbnailUrl ? (
+                    <img
+                        src={opportunity.thumbnailUrl}
+                        alt={opportunity.title}
+                        className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
+                    />
+                ) : opportunity.pitchVideoUrl ? (
                     <video
                         src={opportunity.pitchVideoUrl}
                         className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
@@ -176,15 +190,26 @@ const OpportunityCard = ({ opportunity, onSaveToggle, onEdit }) => {
 
                     {/* Owner Actions */}
                     {isOwner && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (onEdit) onEdit(opportunity);
-                            }}
-                            className="flex items-center gap-2 px-4 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-colors"
-                        >
-                            <Pencil size={14} /> Edit
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onEdit) onEdit(opportunity);
+                                }}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <Pencil size={14} /> Edit
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onDelete) onDelete(opportunity._id);
+                                }}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <Trash2 size={14} /> Delete
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
